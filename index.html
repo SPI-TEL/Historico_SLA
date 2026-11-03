@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Evolução Temporal Contínua (Jan/2024 a Out/2026)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 p-4 md:p-8">
+
+  <div class="max-w-7xl mx-auto space-y-6">
+    
+    <!-- Cabeçalho -->
+    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div>
+        <h1 class="text-xl md:text-2xl font-black text-slate-800 tracking-tight">Curva Evolutiva de Demanda & SLA</h1>
+        <p class="text-sm text-slate-500 mt-1">Série temporal contínua: Janeiro de 2024 a Outubro de 2026 (34 Meses)</p>
+      </div>
+      <div id="status-carga" class="text-xs font-semibold px-3 py-1.5 rounded-full bg-amber-100 text-amber-800 flex items-center gap-2">
+        <span class="animate-spin text-sm">↻</span> Carregando base online...
+      </div>
+    </div>
+
+    <!-- Controles Rápidos de Período e Filtros de Rede/DDD -->
+    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
+      <div>
+        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Filtrar Janela Temporal</label>
+        <div class="flex gap-1" id="btn-anos">
+          <button onclick="filtrarPeriodo('TODOS')" class="px-3 py-1.5 text-xs font-semibold rounded bg-indigo-600 text-white shadow-sm transition">Geral</button>
+          <button onclick="filtrarPeriodo('2024')" class="px-3 py-1.5 text-xs font-semibold rounded bg-slate-100 hover:bg-slate-200 text-slate-700 transition">2024</button>
+          <button onclick="filtrarPeriodo('2025')" class="px-3 py-1.5 text-xs font-semibold rounded bg-slate-100 hover:bg-slate-200 text-slate-700 transition">2025</button>
+          <button onclick="filtrarPeriodo('2026')" class="px-3 py-1.5 text-xs font-semibold rounded bg-slate-100 hover:bg-slate-200 text-slate-700 transition">2026</button>
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Planta / Rede</label>
+        <select id="filtro-rede" onchange="renderizarGrafico()" class="w-full text-xs border rounded-lg p-2 bg-slate-50">
+          <option value="TODAS">Todas (Fixa + Móvel)</option>
+          <option value="Móvel">Apenas Móvel</option>
+          <option value="Fixa">Apenas Fixa</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">DDD</label>
+        <select id="filtro-ddd" onchange="renderizarGrafico()" class="w-full text-xs border rounded-lg p-2 bg-slate-50">
+          <option value="TODOS">Todos os DDDs</option>
+        </select>
+      </div>
+
+      <!-- Resumo Rápido da Janela Ativa -->
+      <div class="text-right border-l pl-4 border-slate-100">
+        <span class="text-xs text-slate-400 block">Total de Chamados na Seleção</span>
+        <span id="label-total" class="text-xl font-bold text-slate-700">0</span>
+      </div>
+    </div>
+
+    <!-- Container do Gráfico Evolutivo de Linha do Tempo -->
+    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+      <div class="h-[450px]">
+        <canvas id="graficoEvolutivo"></canvas>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSYk7Ffx3SciYvJ88AQraUF7GWNRW8Z-VBrxleVdNpVaXtM7lHqW-wg1CTRr9bO7g/pub?gid=194075109&single=true&output=csv";
+
+    // Cria a lista canônica de 34 meses contínuos (Jan/24 a Out/26)
+    const mesesNomes = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+    const timelineCompleta = [];
+
+    // 2024 (1 a 12)
+    for (let m = 1; m <= 12; m++) timelineCompleta.push({ rotulo: `${mesesNomes[m-1]}/24`, ano: "2024", mes: m });
+    // 2025 (1 a 12)
+    for (let m = 1; m <= 12; m++) timelineCompleta.push({ rotulo: `${mesesNomes[m-1]}/25`, ano: "2025", mes: m });
+    // 2026 (1 a 10 - até Outubro)
+    for (let m = 1; m <= 10; m++) timelineCompleta.push({ rotulo: `${mesesNomes[m-1]}/26`, ano: "2026", mes: m });
+
+    let dadosBrutos = [];
+    let chartInstance = null;
+    let anoAtivo = "TODOS";
+
+    function parseDataHora(str) {
+      if (!str) return null;
+      const partes = str.trim().split(" ");
+      if (partes.length < 2) return null;
+      const [dia, mes, ano] = partes[0].split("/").map(Number);
+      const [hora, min, seg] = partes[1].split(":").map(Number);
+      const anoCompleto = ano < 100 ? 2000 + ano : ano;
+      return new Date(anoCompleto, mes - 1, dia, hora, min, seg);
+    }
+
+    window.addEventListener("DOMContentLoaded", () => {
+      Papa.parse(CSV_URL, {
+        download: true,
+        header: true,
+        skipEmptyLines: true,
+        complete: (results) => {
+          document.getElementById("status-carga").innerHTML = "● Online (" + results.data.length.toLocaleString('pt-BR') + " chamados)";
+          document.getElementById("status-carga").className = "text-xs font-semibold px-3 py-1.5 rounded-full bg-emerald-100 text-emerald-800 flex items-center gap-2";
+          
+          processarBase(results.data);
+        },
+        error: (err) => {
+          document.getElementById("status-carga").innerHTML = "Erro ao carregar dados";
+          document.getElementById("status-carga").className = "text-xs font-semibold px-3 py-1.5 rounded-full bg-rose-100 text-rose-800";
+        }
+      });
+    });
+
+    function processarBase(linhas) {
+      dadosBrutos = linhas.map(r => {
+        const ano = String(r.ANO || "").trim();
+        const mes = parseInt(r.MÊS || 0, 10);
+        const ddd = String(r.DDD || "").replace(/\.0$/, "").trim();
+        const planta = String(r.PLANTA || "");
+        const status = String(r.STATUS_INDICADOR || "").toLowerCase().trim();
+
+        let tipoRede = "Outro";
+        if (planta.includes("Móvel")) tipoRede = "Móvel";
+        else if (planta.includes("Fixa")) tipoRede = "Fixa";
+
+        const dtCriacao = parseDataHora(r.DATA_CRIACAO);
+        const dtEncerramento = parseDataHora(r.DATA_ENCERRAMENTO);
+        let tmaHoras = null;
+        if (dtCriacao && dtEncerramento && dtEncerramento >= dtCriacao) {
+          tmaHoras = (dtEncerramento - dtCriacao) / (1000 * 60 * 60);
+        }
+
+        return {
+          ano,
+          mes,
+          ddd,
+          tipoRede,
+          isForaSLA: status === "fora",
+          tmaHoras
+        };
+      }).filter(d => d.ano && d.mes > 0);
+
+      // Preenche select de DDDs
+      const ddds = [...new Set(dadosBrutos.map(d => d.ddd).filter(Boolean))].sort((a,b) => Number(a) - Number(b));
+      const selDDD = document.getElementById("filtro-ddd");
+      ddds.forEach(d => {
+        const opt = document.createElement("option");
+        opt.value = d;
+        opt.textContent = "DDD " + d;
+        selDDD.appendChild(opt);
+      });
+
+      renderizarGrafico();
+    }
+
+    function filtrarPeriodo(ano) {
+      anoAtivo = ano;
+      // Atualiza estilo dos botões
+      document.querySelectorAll("#btn-anos button").forEach(btn => {
+        if (btn.innerText.includes(ano) || (ano === 'TODOS' && btn.innerText === 'Geral')) {
+          btn.className = "px-3 py-1.5 text-xs font-semibold rounded bg-indigo-600 text-white shadow-sm transition";
+        } else {
+          btn.className = "px-3 py-1.5 text-xs font-semibold rounded bg-slate-100 hover:bg-slate-200 text-slate-700 transition";
+        }
+      });
+      renderizarGrafico();
+    }
+
+    function renderizarGrafico() {
+      const redeSel = document.getElementById("filtro-rede").value;
+      const dddSel = document.getElementById("filtro-ddd").value;
+
+      // Base filtrada por atributos
+      const dadosFiltrados = dadosBrutos.filter(d => {
+        return (redeSel === "TODAS" || d.tipoRede === redeSel) &&
+               (dddSel === "TODOS" || d.ddd === dddSel);
+      });
+
+      // Recorte da linha do tempo
+      const janelaTimeline = timelineCompleta.filter(t => anoAtivo === "TODOS" || t.ano === anoAtivo);
+
+      const labels = [];
+      const serieVol = [];
+      const serieSLA = [];
+      const serieTMA = [];
+      let totalGeral = 0;
+
+      janelaTimeline.forEach(t => {
+        labels.push(t.rotulo);
+        const registrosMes = dadosFiltrados.filter(d => d.ano === t.ano && d.mes === t.mes);
+        const qtd = registrosMes.length;
+        const fora = registrosMes.filter(d => d.isForaSLA).length;
+        const tmas = registrosMes.filter(d => d.tmaHoras !== null).map(d => d.tmaHoras);
+
+        totalGeral += qtd;
+        serieVol.push(qtd);
+        serieSLA.push(qtd > 0 ? Number(((fora / qtd) * 100).toFixed(2)) : 0);
+        serieTMA.push(tmas.length > 0 ? Number((tmas.reduce((a,b) => a+b, 0) / tmas.length).toFixed(1)) : 0);
+      });
+
+      document.getElementById("label-total").innerText = totalGeral.toLocaleString('pt-BR');
+
+      // Desenho / Atualização do Chart.js
+      if (chartInstance) chartInstance.destroy();
+
+      const ctx = document.getElementById("graficoEvolutivo").getContext("2d");
+      chartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              type: 'bar',
+              label: 'Volume de Entrantes',
+              data: serieVol,
+              backgroundColor: 'rgba(99, 102, 241, 0.75)',
+              hoverBackgroundColor: '#4f46e5',
+              borderRadius: 4,
+              yAxisID: 'y'
+            },
+            {
+              type: 'line',
+              label: '% Fora SLA',
+              data: serieSLA,
+              borderColor: '#ef4444',
+              backgroundColor: '#ef4444',
+              borderWidth: 2.5,
+              tension: 0.25,
+              pointRadius: 3,
+              yAxisID: 'y1'
+            },
+            {
+              type: 'line',
+              label: 'TMA Médio (Horas)',
+              data: serieTMA,
+              borderColor: '#f97316',
+              backgroundColor: '#f97316',
+              borderWidth: 2,
+              borderDash: [4, 4],
+              tension: 0.25,
+              pointRadius: 2.5,
+              yAxisID: 'y2'
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } },
+            tooltip: {
+              callbacks: {
+                label: function(ctx) {
+                  if (ctx.dataset.label.includes('SLA')) return `${ctx.dataset.label}: ${ctx.raw}%`;
+                  if (ctx.dataset.label.includes('TMA')) return `${ctx.dataset.label}: ${ctx.raw} horas`;
+                  return `${ctx.dataset.label}: ${ctx.raw.toLocaleString('pt-BR')}`;
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { display: false },
+              ticks: { maxRotation: 45, minRotation: 45, font: { size: 10 } }
+            },
+            y: {
+              type: 'linear',
+              position: 'left',
+              title: { display: true, text: 'Volume de Chamados' },
+              beginAtZero: true
+            },
+            y1: {
+              type: 'linear',
+              position: 'right',
+              title: { display: true, text: '% Fora SLA' },
+              ticks: { callback: v => v + '%' },
+              grid: { drawOnChartArea: false },
+              beginAtZero: true
+            },
+            y2: {
+              type: 'linear',
+              position: 'right',
+              title: { display: false },
+              ticks: { display: false },
+              grid: { drawOnChartArea: false },
+              beginAtZero: true
+            }
+          }
+        }
+      });
+    }
+  </script>
+</body>
+</html>
