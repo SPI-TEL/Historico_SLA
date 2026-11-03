@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Portal Unificado de Volumetria, SLA & TMA (Jan/2024 a Out/2026)</title>
+  <title>Portal de Volumetria, SLA & TMA (Jan/2024 a Out/2026)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
   <!-- Dependências: TailwindCSS, Chart.js e PapaParse -->
@@ -18,7 +18,7 @@
     <header class="bg-indigo-950 text-white p-6 rounded-2xl shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
       <div>
         <h1 class="text-xl md:text-2xl font-black tracking-tight">Portal Analítico de Volumetria & Desempenho</h1>
-        <p class="text-xs text-indigo-200 mt-1">Série temporal contínua: Janeiro de 2024 a Outubro de 2026 (34 Meses) | Conexão Google Sheets</p>
+        <p class="text-xs text-indigo-200 mt-1">Série temporal contínua: Janeiro de 2024 a Outubro de 2026 | SLA = Dentro do Prazo / Total</p>
       </div>
       <div id="status-carga" class="text-xs font-semibold px-3 py-1.5 rounded-full bg-indigo-900 text-indigo-200 flex items-center gap-2">
         <span class="animate-spin text-sm">↻</span> Carregando base online...
@@ -26,15 +26,23 @@
     </header>
 
     <!-- Filtros Globais e Seletor de Período -->
-    <section class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
+    <section class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
       <div>
-        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Janela Temporal (Atalhos)</label>
+        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Janela Temporal</label>
         <div class="flex gap-1" id="btn-anos">
           <button onclick="filtrarPeriodo('TODOS')" class="px-3 py-1.5 text-xs font-semibold rounded bg-indigo-600 text-white shadow-sm transition">Geral</button>
           <button onclick="filtrarPeriodo('2024')" class="px-3 py-1.5 text-xs font-semibold rounded bg-slate-100 hover:bg-slate-200 text-slate-700 transition">2024</button>
           <button onclick="filtrarPeriodo('2025')" class="px-3 py-1.5 text-xs font-semibold rounded bg-slate-100 hover:bg-slate-200 text-slate-700 transition">2025</button>
           <button onclick="filtrarPeriodo('2026')" class="px-3 py-1.5 text-xs font-semibold rounded bg-slate-100 hover:bg-slate-200 text-slate-700 transition">2026</button>
         </div>
+      </div>
+
+      <!-- Novo Filtro por Indicador -->
+      <div>
+        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Indicador</label>
+        <select id="filtro-indicador" onchange="renderizarTudo()" class="w-full text-xs border rounded-lg p-2 bg-slate-50 focus:ring-2 focus:ring-indigo-500">
+          <option value="TODOS">Todos os Indicadores</option>
+        </select>
       </div>
 
       <div>
@@ -60,68 +68,59 @@
     </section>
 
     <!-- Cards de Métricas (KPIs) -->
-    <section class="grid grid-cols-2 md:grid-cols-5 gap-4">
+    <section class="grid grid-cols-2 md:grid-cols-4 gap-4">
       <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
         <p class="text-xs font-medium text-slate-500">Total Entrantes</p>
         <p id="kpi-entrantes" class="text-2xl font-bold text-slate-800 mt-1">0</p>
       </div>
       <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-        <p class="text-xs font-medium text-slate-500">Fora do Prazo (SLA)</p>
-        <p id="kpi-fora" class="text-2xl font-bold text-rose-600 mt-1">0</p>
+        <p class="text-xs font-medium text-slate-500">Dentro do Prazo (Qtd)</p>
+        <p id="kpi-dentro" class="text-2xl font-bold text-emerald-600 mt-1">0</p>
       </div>
       <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-        <p class="text-xs font-medium text-slate-500">% Fora SLA</p>
-        <p id="kpi-sla-pct" class="text-2xl font-bold text-amber-600 mt-1">0.0%</p>
+        <p class="text-xs font-medium text-slate-500">% SLA (Conformidade)</p>
+        <p id="kpi-sla-pct" class="text-2xl font-bold text-indigo-600 mt-1">0.0%</p>
       </div>
       <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
         <p class="text-xs font-medium text-slate-500">TMA Médio</p>
-        <p id="kpi-tma" class="text-2xl font-bold text-indigo-600 mt-1">0.0h</p>
-      </div>
-      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 col-span-2 md:col-span-1">
-        <p class="text-xs font-medium text-slate-500">DDD Maior Oscilação</p>
-        <p id="kpi-oscilador" class="text-2xl font-bold text-slate-700 mt-1">-</p>
+        <p id="kpi-tma" class="text-2xl font-bold text-amber-600 mt-1">0.0h</p>
       </div>
     </section>
 
     <!-- Gráfico 1: Linha do Tempo Evolutiva Contínua (Jan/24 a Out/26) -->
     <section class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-3">
       <div class="flex justify-between items-center">
-        <h2 class="text-base font-bold text-slate-800">Evolução Mensal Completa: Demanda, % Fora SLA & TMA</h2>
+        <h2 class="text-base font-bold text-slate-800">Evolução Mensal Completa: Demanda, % SLA & TMA</h2>
         <span class="text-xs text-slate-400">Série Temporal Contínua</span>
       </div>
-      <div class="h-[420px]">
+      <div class="h-[400px]">
         <canvas id="graficoEvolutivo"></canvas>
       </div>
     </section>
 
-    <!-- Gráficos 2 e 3: Evolução MoM % e Comparativo Homólogo (Jan-24 vs Jan-25 vs Jan-26) -->
+    <!-- Gráfico 2: Comparativo Homólogo Anual por Mês (Linha Única / Full Width) -->
+    <section class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-3">
+      <div class="flex justify-between items-center">
+        <h2 class="text-base font-bold text-slate-800">Comparativo Homólogo Anual por Mês (Jan vs Jan)</h2>
+        <span class="text-xs text-slate-400">Comportamento Sazonal 2024 vs 2025 vs 2026</span>
+      </div>
+      <div class="h-[380px]">
+        <canvas id="chartYoY"></canvas>
+      </div>
+    </section>
+
+    <!-- Gráficos 3 e 4: Variação Percentual MoM (%) e Top DDDs por % SLA -->
     <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
-        <h3 class="text-sm font-bold text-slate-700 mb-3">Variação Percentual Mês a Mês (MoM %)</h3>
+        <h3 class="text-sm font-bold text-slate-700 mb-3">Variação Percentual de Entrantes Mês a Mês (MoM %)</h3>
         <div class="h-64">
           <canvas id="chartMoM"></canvas>
         </div>
       </div>
       <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
-        <h3 class="text-sm font-bold text-slate-700 mb-3">Comparativo Homólogo Anual por Mês (Jan vs Jan)</h3>
-        <div class="h-64">
-          <canvas id="chartYoY"></canvas>
-        </div>
-      </div>
-    </section>
-
-    <!-- Gráficos 4 e 5: Diagnóstico de DDDs (Ofensores de SLA & Oscilação) -->
-    <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
-        <h3 class="text-sm font-bold text-slate-700 mb-3">Top DDDs Ofensores (% Chamados Fora do Prazo)</h3>
+        <h3 class="text-sm font-bold text-slate-700 mb-3">Top DDDs por Desempenho de SLA (% Dentro do Prazo)</h3>
         <div class="h-64">
           <canvas id="chartDDDSla"></canvas>
-        </div>
-      </div>
-      <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
-        <h3 class="text-sm font-bold text-slate-700 mb-3">DDDs com Maior Oscilação Volumétrica (Desvio Padrão Mensal)</h3>
-        <div class="h-64">
-          <canvas id="chartDDDOscilacao"></canvas>
         </div>
       </div>
     </section>
@@ -141,7 +140,7 @@
         </div>
       </div>
 
-      <!-- Top 10 Municípios Fora SLA -->
+      <!-- Top 10 Municípios Fora do Prazo -->
       <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
         <h4 class="text-xs font-bold uppercase tracking-wider text-slate-600 mb-3 border-b pb-2">Top 10 Municípios (Fora do Prazo)</h4>
         <div class="overflow-x-auto max-h-72">
@@ -154,7 +153,7 @@
         </div>
       </div>
 
-      <!-- Top 10 Alarmes -->
+      <!-- Top 10 Tipos de Alarmes -->
       <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
         <h4 class="text-xs font-bold uppercase tracking-wider text-slate-600 mb-3 border-b pb-2">Top 10 Tipos de Alarmes</h4>
         <div class="overflow-x-auto max-h-72">
@@ -173,10 +172,10 @@
   <script>
     const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSYk7Ffx3SciYvJ88AQraUF7GWNRW8Z-VBrxleVdNpVaXtM7lHqW-wg1CTRr9bO7g/pub?gid=194075109&single=true&output=csv";
 
-    // Cronograma canônico de 34 meses contínuos (Jan/24 a Out/26)
     const mesesNomes = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
     const timelineCompleta = [];
 
+    // Janela temporal padrão de 34 meses
     for (let m = 1; m <= 12; m++) timelineCompleta.push({ rotulo: `${mesesNomes[m-1]}/24`, ano: "2024", mes: m, periodo: `2024-${String(m).padStart(2,'0')}` });
     for (let m = 1; m <= 12; m++) timelineCompleta.push({ rotulo: `${mesesNomes[m-1]}/25`, ano: "2025", mes: m, periodo: `2025-${String(m).padStart(2,'0')}` });
     for (let m = 1; m <= 10; m++) timelineCompleta.push({ rotulo: `${mesesNomes[m-1]}/26`, ano: "2026", mes: m, periodo: `2026-${String(m).padStart(2,'0')}` });
@@ -219,6 +218,7 @@
         const ddd = String(r.DDD || "").replace(/\.0$/, "").trim();
         const planta = String(r.PLANTA || "");
         const status = String(r.STATUS_INDICADOR || "").toLowerCase().trim();
+        const indicador = String(r.INDICADOR || "Não Informado").trim();
 
         let tipoRede = "Outro";
         if (planta.includes("Móvel")) tipoRede = "Móvel";
@@ -236,7 +236,10 @@
           mes,
           periodo: ano + "-" + String(mes).padStart(2, "0"),
           ddd,
+          indicador,
           tipoRede,
+          // Regra: Dentro do prazo vs Fora do prazo
+          isDentroSLA: status === "dentro",
           isForaSLA: status === "fora",
           municipio: (r.MUNICIPIO || "Não Identificado").trim(),
           tipoAlarme: (r.TIPO_ALARME || "Não Informado").trim(),
@@ -244,7 +247,17 @@
         };
       }).filter(d => d.ano && d.mes > 0);
 
-      // Preenche select de DDDs
+      // Preenchimento do select de Indicadores
+      const indicadores = [...new Set(dadosBrutos.map(d => d.indicador).filter(Boolean))].sort();
+      const selIndicador = document.getElementById("filtro-indicador");
+      indicadores.forEach(ind => {
+        const opt = document.createElement("option");
+        opt.value = ind;
+        opt.textContent = ind;
+        selIndicador.appendChild(opt);
+      });
+
+      // Preenchimento do select de DDDs
       const ddds = [...new Set(dadosBrutos.map(d => d.ddd).filter(Boolean))].sort((a,b) => Number(a) - Number(b));
       const selDDD = document.getElementById("filtro-ddd");
       ddds.forEach(d => {
@@ -270,37 +283,38 @@
     }
 
     function renderizarTudo() {
+      const indSel = document.getElementById("filtro-indicador").value;
       const redeSel = document.getElementById("filtro-rede").value;
       const dddSel = document.getElementById("filtro-ddd").value;
 
-      // Base filtrada por atributos de rede e DDD
+      // Filtro primário pelos seletores
       const dadosFiltrados = dadosBrutos.filter(d => {
-        return (redeSel === "TODAS" || d.tipoRede === redeSel) &&
+        return (indSel === "TODOS" || d.indicador === indSel) &&
+               (redeSel === "TODAS" || d.tipoRede === redeSel) &&
                (dddSel === "TODOS" || d.ddd === dddSel);
       });
 
-      // Recorte da linha do tempo com base no botão de ano selecionado
+      // Recorte da linha do tempo selecionada
       const timelineRecorte = timelineCompleta.filter(t => anoAtivo === "TODOS" || t.ano === anoAtivo);
-
-      // Dados que pertencem à janela temporal ativa
       const periodosRecorte = new Set(timelineRecorte.map(t => t.periodo));
       const dadosJanela = dadosFiltrados.filter(d => periodosRecorte.has(d.periodo));
 
-      // 1. Atualização dos KPIs
+      // 1. KPIs
       const totalEntrantes = dadosJanela.length;
-      const totalForaSLA = dadosJanela.filter(d => d.isForaSLA).length;
-      const pctForaSLA = totalEntrantes > 0 ? (totalForaSLA / totalEntrantes * 100) : 0;
+      const totalDentroSLA = dadosJanela.filter(d => d.isDentroSLA).length;
+      // % SLA = Dentro do Prazo / Total Entrantes
+      const pctSLA = totalEntrantes > 0 ? (totalDentroSLA / totalEntrantes * 100) : 0;
       
       const tmaValidos = dadosJanela.filter(d => d.tmaHoras !== null).map(d => d.tmaHoras);
       const tmaMedio = tmaValidos.length > 0 ? (tmaValidos.reduce((a,b) => a+b, 0) / tmaValidos.length) : 0;
 
       document.getElementById("label-total").innerText = totalEntrantes.toLocaleString('pt-BR');
       document.getElementById("kpi-entrantes").innerText = totalEntrantes.toLocaleString('pt-BR');
-      document.getElementById("kpi-fora").innerText = totalForaSLA.toLocaleString('pt-BR');
-      document.getElementById("kpi-sla-pct").innerText = pctForaSLA.toFixed(2) + "%";
+      document.getElementById("kpi-dentro").innerText = totalDentroSLA.toLocaleString('pt-BR');
+      document.getElementById("kpi-sla-pct").innerText = pctSLA.toFixed(2) + "%";
       document.getElementById("kpi-tma").innerText = tmaMedio.toFixed(1) + "h";
 
-      // 2. Gráfico 1: Linha do Tempo Evolutiva
+      // 2. Gráfico 1: Linha do Tempo Evolutiva (Entrantes, % SLA Dentro, TMA)
       const labelsEvolucao = [];
       const volEvolucao = [];
       const slaEvolucao = [];
@@ -310,11 +324,11 @@
         labelsEvolucao.push(t.rotulo);
         const reg = dadosFiltrados.filter(d => d.ano === t.ano && d.mes === t.mes);
         const qtd = reg.length;
-        const fora = reg.filter(d => d.isForaSLA).length;
+        const dentro = reg.filter(d => d.isDentroSLA).length;
         const tmas = reg.filter(d => d.tmaHoras !== null).map(d => d.tmaHoras);
 
         volEvolucao.push(qtd);
-        slaEvolucao.push(qtd > 0 ? Number(((fora / qtd) * 100).toFixed(2)) : 0);
+        slaEvolucao.push(qtd > 0 ? Number(((dentro / qtd) * 100).toFixed(2)) : 0);
         tmaEvolucao.push(tmas.length > 0 ? Number((tmas.reduce((a,b) => a+b, 0) / tmas.length).toFixed(1)) : 0);
       });
 
@@ -334,10 +348,10 @@
             },
             {
               type: 'line',
-              label: '% Fora SLA',
+              label: '% SLA (Dentro do Prazo)',
               data: slaEvolucao,
-              borderColor: '#ef4444',
-              backgroundColor: '#ef4444',
+              borderColor: '#10b981',
+              backgroundColor: '#10b981',
               borderWidth: 2.5,
               tension: 0.2,
               pointRadius: 3,
@@ -367,13 +381,40 @@
           scales: {
             x: { grid: { display: false }, ticks: { maxRotation: 45, minRotation: 45, font: { size: 10 } } },
             y: { type: 'linear', position: 'left', beginAtZero: true, title: { display: true, text: 'Volume' } },
-            y1: { type: 'linear', position: 'right', beginAtZero: true, grid: { drawOnChartArea: false }, ticks: { callback: v => v + '%' }, title: { display: true, text: '% Fora SLA' } },
+            y1: { type: 'linear', position: 'right', beginAtZero: true, max: 100, grid: { drawOnChartArea: false }, ticks: { callback: v => v + '%' }, title: { display: true, text: '% SLA' } },
             y2: { type: 'linear', position: 'right', beginAtZero: true, grid: { drawOnChartArea: false }, ticks: { display: false } }
           }
         }
       });
 
-      // 3. Gráfico 2: Variação Mês a Mês (MoM %)
+      // 3. Gráfico 2: Comparativo Homólogo Anual por Mês (Linha Única)
+      const anosParaComp = [...new Set(dadosFiltrados.map(d => d.ano))].sort();
+      const cores = ['#6366f1', '#06b6d4', '#f59e0b', '#ec4899'];
+      const datasetsYoY = anosParaComp.map((ano, idx) => {
+        const dadosMes = Array.from({length: 12}, (_, m) => {
+          return dadosFiltrados.filter(d => d.ano === ano && d.mes === (m + 1)).length;
+        });
+        return {
+          label: ano,
+          data: dadosMes,
+          backgroundColor: cores[idx % cores.length],
+          borderRadius: 4
+        };
+      });
+
+      renderChart("chartYoY", {
+        type: 'bar',
+        data: { labels: mesesNomes, datasets: datasetsYoY },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: { legend: { position: 'top' } },
+          scales: { y: { beginAtZero: true, title: { display: true, text: 'Volume de Chamados' } } }
+        }
+      });
+
+      // 4. Gráfico 3: Variação Mês a Mês (MoM %)
       const momLabels = [];
       const momValores = [];
       for (let i = 1; i < volEvolucao.length; i++) {
@@ -400,70 +441,29 @@
         }
       });
 
-      // 4. Gráfico 3: Comparativo Homólogo Jan-24 vs Jan-25 vs Jan-26
-      const anosParaComp = [...new Set(dadosFiltrados.map(d => d.ano))].sort();
-      const cores = ['#6366f1', '#06b6d4', '#f59e0b', '#ec4899'];
-      const datasetsYoY = anosParaComp.map((ano, idx) => {
-        const dadosMes = Array.from({length: 12}, (_, m) => {
-          return dadosFiltrados.filter(d => d.ano === ano && d.mes === (m + 1)).length;
-        });
-        return {
-          label: ano,
-          data: dadosMes,
-          backgroundColor: cores[idx % cores.length],
-          borderRadius: 3
-        };
-      });
-
-      renderChart("chartYoY", {
-        type: 'bar',
-        data: { labels: mesesNomes, datasets: datasetsYoY },
-        options: { responsive: true, maintainAspectRatio: false }
-      });
-
-      // 5. Diagnóstico de DDDs (Ofensores e Oscilação por Desvio Padrão)
+      // 5. Gráfico 4: Desempenho de SLA por DDD (% Dentro do Prazo)
       const dddsUnicos = [...new Set(dadosJanela.map(d => d.ddd).filter(Boolean))];
       const statsDDD = dddsUnicos.map(ddd => {
         const dddRows = dadosJanela.filter(d => d.ddd === ddd);
         const total = dddRows.length;
-        const fora = dddRows.filter(d => d.isForaSLA).length;
-        const sla = total > 0 ? (fora / total * 100) : 0;
-
-        // Distribuição de volumes por período para cálculo do desvio padrão
-        const vols = timelineRecorte.map(t => dddRows.filter(r => r.periodo === t.periodo).length);
-        const media = vols.reduce((a,b) => a+b, 0) / (vols.length || 1);
-        const variancia = vols.reduce((sum, v) => sum + Math.pow(v - media, 2), 0) / (vols.length || 1);
-        const desvioPadrao = Math.sqrt(variancia);
-
-        return { ddd, total, sla, desvioPadrao };
+        const dentro = dddRows.filter(d => d.isDentroSLA).length;
+        const sla = total > 0 ? (dentro / total * 100) : 0;
+        return { ddd, total, sla };
       });
 
-      // Top DDDs Ofensores de Prazo
-      const topOfensores = [...statsDDD].sort((a,b) => b.sla - a.sla).slice(0, 10);
+      // Ordenar pelos melhores desempenhos de SLA
+      const topDDDsSla = [...statsDDD].sort((a,b) => b.sla - a.sla).slice(0, 10);
       renderChart("chartDDDSla", {
         type: 'bar',
         data: {
-          labels: topOfensores.map(d => "DDD " + d.ddd),
-          datasets: [{ label: '% Fora SLA', data: topOfensores.map(d => d.sla), backgroundColor: '#ef4444', borderRadius: 4 }]
+          labels: topDDDsSla.map(d => "DDD " + d.ddd),
+          datasets: [{ label: '% SLA Dentro', data: topDDDsSla.map(d => d.sla), backgroundColor: '#3b82f6', borderRadius: 4 }]
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          scales: { y: { ticks: { callback: v => v.toFixed(1) + '%' } } }
+          scales: { y: { max: 100, ticks: { callback: v => v.toFixed(1) + '%' } } }
         }
-      });
-
-      // Top DDDs com Maior Oscilação
-      const topOsciladores = [...statsDDD].sort((a,b) => b.desvioPadrao - a.desvioPadrao).slice(0, 10);
-      document.getElementById("kpi-oscilador").innerText = topOsciladores.length > 0 ? `DDD ${topOsciladores[0].ddd}` : "-";
-
-      renderChart("chartDDDOscilacao", {
-        type: 'bar',
-        data: {
-          labels: topOsciladores.map(d => "DDD " + d.ddd),
-          datasets: [{ label: 'Desvio Padrão Mensal', data: topOsciladores.map(d => d.desvioPadrao), backgroundColor: '#0284c7', borderRadius: 4 }]
-        },
-        options: { responsive: true, maintainAspectRatio: false }
       });
 
       // 6. Preenchimento dos Top 10
