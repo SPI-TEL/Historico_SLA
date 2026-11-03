@@ -18,7 +18,7 @@
     <header class="bg-indigo-950 text-white p-6 rounded-2xl shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
       <div>
         <h1 class="text-xl md:text-2xl font-black tracking-tight">Portal Analítico de Volumetria & Desempenho</h1>
-        <p class="text-xs text-indigo-200 mt-1">Série temporal contínua: Jan/2024 a Out/2026 | SLA com Semáforo Dinâmico</p>
+        <p class="text-xs text-indigo-200 mt-1">Série temporal contínua: Jan/2024 a Out/2026 | SLA = Chamados Dentro do Prazo / Total</p>
       </div>
       <div id="status-carga" class="text-xs font-semibold px-3 py-1.5 rounded-full bg-indigo-900 text-indigo-200 flex items-center gap-2">
         <span class="animate-spin text-sm">↻</span> Carregando base online...
@@ -87,7 +87,7 @@
       </div>
     </section>
 
-    <!-- Gráfico 1: Linha do Tempo Evolutiva Contínua (Sem TMA, com Cores Dinâmicas e Meta 80%) -->
+    <!-- Gráfico 1: Linha do Tempo Evolutiva Contínua -->
     <section class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-3">
       <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-2">
         <div>
@@ -101,18 +101,18 @@
           <span class="flex items-center gap-1.5"><span class="w-4 h-0.5 border-t-2 border-dashed border-orange-400 inline-block"></span> Meta (80%)</span>
         </div>
       </div>
-      <div class="h-[400px]">
+      <div class="h-[430px]">
         <canvas id="graficoEvolutivo"></canvas>
       </div>
     </section>
 
-    <!-- Gráfico 2: Comparativo Homólogo Anual por Mês (Cinza, Azul Claro e Azul Escuro) -->
+    <!-- Gráfico 2: Comparativo Homólogo Anual por Mês com Variação Percentual no Topo -->
     <section class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-3">
       <div class="flex justify-between items-center">
-        <h2 class="text-base font-bold text-slate-800">Comparativo Homólogo Anual por Mês (Jan vs Jan)[cite: 2, 3]</h2>
-        <span class="text-xs text-slate-400">Comportamento Sazonal[cite: 3]</span>
+        <h2 class="text-base font-bold text-slate-800">Comparativo Homólogo Anual por Mês (Jan vs Jan)</h2>
+        <span class="text-xs text-slate-400">Comportamento Sazonal 2024 vs 2025 vs 2026</span>
       </div>
-      <div class="h-[380px]">
+      <div class="h-[440px]">
         <canvas id="chartYoY"></canvas>
       </div>
     </section>
@@ -183,7 +183,6 @@
     const mesesNomes = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
     const timelineCompleta = [];
 
-    // Linha do tempo: Jan/24 a Out/26
     for (let m = 1; m <= 12; m++) timelineCompleta.push({ rotulo: `${mesesNomes[m-1]}/24`, ano: "2024", mes: m, periodo: `2024-${String(m).padStart(2,'0')}` });
     for (let m = 1; m <= 12; m++) timelineCompleta.push({ rotulo: `${mesesNomes[m-1]}/25`, ano: "2025", mes: m, periodo: `2025-${String(m).padStart(2,'0')}` });
     for (let m = 1; m <= 10; m++) timelineCompleta.push({ rotulo: `${mesesNomes[m-1]}/26`, ano: "2026", mes: m, periodo: `2026-${String(m).padStart(2,'0')}` });
@@ -191,6 +190,96 @@
     let dadosBrutos = [];
     let chartsInstancias = {};
     let anoAtivo = "TODOS";
+
+    // Plugin customizado do Chart.js para desenhar rótulos verticais na base interna das barras
+    const pluginRotulosNaBase = {
+      id: 'rotulosNaBase',
+      afterDatasetsDraw(chart) {
+        const { ctx } = chart;
+        chart.data.datasets.forEach((dataset, datasetIndex) => {
+          if (dataset.type === 'line' || dataset.displayDataLabels === false) return;
+          const meta = chart.getDatasetMeta(datasetIndex);
+          if (meta.hidden) return;
+
+          meta.data.forEach((element, index) => {
+            const val = dataset.data[index];
+            if (val === null || val === undefined || val === 0) return;
+
+            const { x, base, height } = element;
+            // Se a barra for muito pequena para caber o texto na vertical, pula
+            if (Math.abs(height) < 20) return;
+
+            ctx.save();
+            ctx.translate(x, base - 8);
+            ctx.rotate(-Math.PI / 2); // Rotação vertical de -90 graus
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.font = 'bold 9px sans-serif';
+            ctx.fillStyle = '#ffffff'; // Branco para destacar no interior da barra
+            ctx.fillText(Number(val).toLocaleString('pt-BR'), 0, 0);
+            ctx.restore();
+          });
+        });
+      }
+    };
+
+    // Plugin customizado para calcular e desenhar as variações percentuais anuais no topo de cada mês (Estilo Imagem 3)
+    const pluginVariacaoNoTopoYoY = {
+      id: 'variacaoNoTopoYoY',
+      afterDatasetsDraw(chart) {
+        if (chart.canvas.id !== 'chartYoY') return;
+        const { ctx, scales: { x, y } } = chart;
+        const ds2024 = chart.data.datasets.find(d => d.label === '2024');
+        const ds2025 = chart.data.datasets.find(d => d.label === '2025');
+        const ds2026 = chart.data.datasets.find(d => d.label === '2026');
+
+        if (!ds2024 || !ds2025) return;
+
+        mesesNomes.forEach((mes, idx) => {
+          const v24 = ds2024.data[idx] || 0;
+          const v25 = ds2025.data[idx] || 0;
+          const v26 = ds2026 ? (ds2026.data[idx] || 0) : 0;
+
+          const meta24 = chart.getDatasetMeta(chart.data.datasets.indexOf(ds2024)).data[idx];
+          const meta25 = chart.getDatasetMeta(chart.data.datasets.indexOf(ds2025)).data[idx];
+          const meta26 = ds2026 ? chart.getDatasetMeta(chart.data.datasets.indexOf(ds2026)).data[idx] : null;
+
+          // Variação 24 -> 25
+          if (v24 > 0 && v25 > 0 && meta25) {
+            const pct = ((v25 - v24) / v24) * 100;
+            const sinal = pct >= 0 ? '+' : '';
+            const texto = `${sinal}${pct.toFixed(1)}%`;
+            const cor = pct >= 0 ? '#10b981' : '#ef4444';
+            const posY = Math.min(meta24.y, meta25.y) - 8;
+
+            ctx.save();
+            ctx.font = 'bold 8px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillStyle = cor;
+            ctx.fillText(texto, (meta24.x + meta25.x) / 2, posY);
+            ctx.restore();
+          }
+
+          // Variação 25 -> 26
+          if (v25 > 0 && v26 > 0 && meta26) {
+            const pct = ((v26 - v25) / v25) * 100;
+            const sinal = pct >= 0 ? '+' : '';
+            const texto = `${sinal}${pct.toFixed(1)}%`;
+            const cor = pct >= 0 ? '#10b981' : '#ef4444';
+            const posY = Math.min(meta25.y, meta26.y) - 8;
+
+            ctx.save();
+            ctx.font = 'bold 8px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillStyle = cor;
+            ctx.fillText(texto, (meta25.x + meta26.x) / 2, posY);
+            ctx.restore();
+          }
+        });
+      }
+    };
+
+    Chart.register(pluginRotulosNaBase, pluginVariacaoNoTopoYoY);
 
     function parseDataHora(str) {
       if (!str) return null;
@@ -289,7 +378,6 @@
       renderizarTudo();
     }
 
-    // Regra de cores de SLA
     function getSLAColor(val) {
       if (val < 80) return '#ef4444'; // Vermelho (< 80%)
       if (val < 85) return '#eab308'; // Amarelo (80% a 84.999%)
@@ -301,14 +389,12 @@
       const redeSel = document.getElementById("filtro-rede").value;
       const dddSel = document.getElementById("filtro-ddd").value;
 
-      // Base filtrada pelos seletores
       const dadosFiltrados = dadosBrutos.filter(d => {
         return (indSel === "TODOS" || d.indicador === indSel) &&
                (redeSel === "TODAS" || d.tipoRede === redeSel) &&
                (dddSel === "TODOS" || d.ddd === dddSel);
       });
 
-      // Recorte da linha do tempo selecionada
       const timelineRecorte = timelineCompleta.filter(t => anoAtivo === "TODOS" || t.ano === anoAtivo);
       const periodosRecorte = new Set(timelineRecorte.map(t => t.periodo));
       const dadosJanela = dadosFiltrados.filter(d => periodosRecorte.has(d.periodo));
@@ -337,7 +423,7 @@
 
       document.getElementById("kpi-tma").innerText = tmaMedio.toFixed(1) + "h";
 
-      // 2. Gráfico 1: Linha do Tempo Evolutiva (Sem TMA, com Cores Dinâmicas e Meta 80%)
+      // 2. Gráfico 1: Linha do Tempo Evolutiva (Colunas em Azul Escuro, Pontos Menores)
       const labelsEvolucao = [];
       const volEvolucao = [];
       const slaEvolucao = [];
@@ -351,7 +437,7 @@
 
         volEvolucao.push(qtd);
         slaEvolucao.push(qtd > 0 ? Number(((dentro / qtd) * 100).toFixed(2)) : 0);
-        meta80.push(80); // Linha constante de meta
+        meta80.push(80);
       });
 
       const coresPontosSLA = slaEvolucao.map(val => getSLAColor(val));
@@ -365,9 +451,9 @@
               type: 'bar',
               label: 'Entrantes',
               data: volEvolucao,
-              backgroundColor: 'rgba(148, 163, 184, 0.45)', // Cinza suave para destacar a linha
-              hoverBackgroundColor: 'rgba(100, 116, 139, 0.75)',
-              borderRadius: 4,
+              backgroundColor: 'rgba(30, 58, 138, 0.85)', // Azul Escuro solicitado
+              hoverBackgroundColor: '#1e3a8a',
+              borderRadius: 3,
               yAxisID: 'y'
             },
             {
@@ -378,11 +464,10 @@
               borderWidth: 2,
               pointBackgroundColor: coresPontosSLA,
               pointBorderColor: coresPontosSLA,
-              pointRadius: 6,
-              pointHoverRadius: 8,
+              pointRadius: 3,          // Bolinha reduzida
+              pointHoverRadius: 5,     // Hover proporcional
               tension: 0.25,
               yAxisID: 'y1',
-              // Colorir os segmentos da linha conforme o valor
               segment: {
                 borderColor: ctx => getSLAColor(ctx.p1.raw)
               }
@@ -391,9 +476,9 @@
               type: 'line',
               label: 'Meta (80%)',
               data: meta80,
-              borderColor: '#fb923c', // Laranja Claro
-              borderWidth: 2,
-              borderDash: [6, 4],
+              borderColor: '#fb923c',
+              borderWidth: 1.5,
+              borderDash: [5, 4],
               pointRadius: 0,
               fill: false,
               yAxisID: 'y1'
@@ -405,13 +490,7 @@
           maintainAspectRatio: false,
           interaction: { mode: 'index', intersect: false },
           plugins: {
-            legend: { 
-              position: 'top', 
-              labels: { 
-                boxWidth: 12, 
-                font: { size: 11 } 
-              } 
-            },
+            legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } },
             tooltip: {
               callbacks: {
                 label: function(ctx) {
@@ -439,7 +518,7 @@
         }
       });
 
-      // 3. Gráfico 2: Comparativo Homólogo (2024 = Cinza, 2025 = Azul Claro, 2026 = Azul Escuro)
+      // 3. Gráfico 2: Comparativo Homólogo (Sem resíduos de texto, Variação no Topo e Rótulo Vertical na Base)
       const mapaCoresAnos = {
         '2024': '#94a3b8', // Cinza
         '2025': '#38bdf8', // Azul Claro
@@ -455,7 +534,7 @@
           label: ano,
           data: dadosMes,
           backgroundColor: mapaCoresAnos[ano] || '#cbd5e1',
-          borderRadius: 4
+          borderRadius: 3
         };
       });
 
@@ -466,6 +545,9 @@
           responsive: true,
           maintainAspectRatio: false,
           interaction: { mode: 'index', intersect: false },
+          layout: {
+            padding: { top: 25 } // Espaço superior para caber as porcentagens de variação
+          },
           plugins: { legend: { position: 'top' } },
           scales: { y: { beginAtZero: true, title: { display: true, text: 'Volume de Chamados' } } }
         }
@@ -488,7 +570,8 @@
             label: 'Variação MoM (%)',
             data: momValores,
             backgroundColor: momValores.map(v => v >= 0 ? '#10b981' : '#f43f5e'),
-            borderRadius: 3
+            borderRadius: 3,
+            displayDataLabels: false // Evita desenhar número vertical nas barrinhas estreitas de MoM
           }]
         },
         options: {
@@ -498,7 +581,7 @@
         }
       });
 
-      // 5. Gráfico 4: Desempenho de SLA por DDD (% Dentro do Prazo) com Semáforo de Cores
+      // 5. Gráfico 4: Desempenho de SLA por DDD
       const dddsUnicos = [...new Set(dadosJanela.map(d => d.ddd).filter(Boolean))];
       const statsDDD = dddsUnicos.map(ddd => {
         const dddRows = dadosJanela.filter(d => d.ddd === ddd);
@@ -519,7 +602,8 @@
             label: '% SLA Dentro', 
             data: topDDDsSla.map(d => d.sla), 
             backgroundColor: coresBarrasDDD, 
-            borderRadius: 4 
+            borderRadius: 4,
+            displayDataLabels: false
           }]
         },
         options: {
@@ -529,7 +613,7 @@
         }
       });
 
-      // 6. Preenchimento das Tabelas Top 10
+      // 6. Tabelas Top 10
       popularTabela("tbl-top-mun-vol", agruparTop(dadosJanela, 'municipio', 10));
       popularTabela("tbl-top-mun-fora", agruparTop(dadosJanela.filter(d => d.isForaSLA), 'municipio', 10));
       popularTabela("tbl-top-alarmes", agruparTop(dadosJanela, 'tipoAlarme', 10));
