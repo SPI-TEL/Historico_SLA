@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Portal de Volumetria, SLA & TMA (Jan/2024 a Out/2026)</title>
+  <title>Portal de Volumetria, SLA & Desempenho (2024 - 2026)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
   <!-- Dependências: TailwindCSS, Chart.js e PapaParse -->
@@ -18,7 +18,7 @@
     <header class="bg-indigo-950 text-white p-6 rounded-2xl shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
       <div>
         <h1 class="text-xl md:text-2xl font-black tracking-tight">Portal Analítico de Volumetria & Desempenho</h1>
-        <p class="text-xs text-indigo-200 mt-1">Série temporal contínua: Janeiro de 2024 a Outubro de 2026 | SLA = Dentro do Prazo / Total</p>
+        <p class="text-xs text-indigo-200 mt-1">Série temporal contínua: Jan/2024 a Out/2026 | SLA com Semáforo Dinâmico</p>
       </div>
       <div id="status-carga" class="text-xs font-semibold px-3 py-1.5 rounded-full bg-indigo-900 text-indigo-200 flex items-center gap-2">
         <span class="animate-spin text-sm">↻</span> Carregando base online...
@@ -37,7 +37,7 @@
         </div>
       </div>
 
-      <!-- Novo Filtro por Indicador -->
+      <!-- Filtro por Indicador -->
       <div>
         <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Indicador</label>
         <select id="filtro-indicador" onchange="renderizarTudo()" class="w-full text-xs border rounded-lg p-2 bg-slate-50 focus:ring-2 focus:ring-indigo-500">
@@ -79,30 +79,38 @@
       </div>
       <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
         <p class="text-xs font-medium text-slate-500">% SLA (Conformidade)</p>
-        <p id="kpi-sla-pct" class="text-2xl font-bold text-indigo-600 mt-1">0.0%</p>
+        <p id="kpi-sla-pct" class="text-2xl font-bold mt-1">0.0%</p>
       </div>
       <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
         <p class="text-xs font-medium text-slate-500">TMA Médio</p>
-        <p id="kpi-tma" class="text-2xl font-bold text-amber-600 mt-1">0.0h</p>
+        <p id="kpi-tma" class="text-2xl font-bold text-slate-600 mt-1">0.0h</p>
       </div>
     </section>
 
-    <!-- Gráfico 1: Linha do Tempo Evolutiva Contínua (Jan/24 a Out/26) -->
+    <!-- Gráfico 1: Linha do Tempo Evolutiva Contínua (Sem TMA, com Cores Dinâmicas e Meta 80%) -->
     <section class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-3">
-      <div class="flex justify-between items-center">
-        <h2 class="text-base font-bold text-slate-800">Evolução Mensal Completa: Demanda, % SLA & TMA</h2>
-        <span class="text-xs text-slate-400">Série Temporal Contínua</span>
+      <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-2">
+        <div>
+          <h2 class="text-base font-bold text-slate-800">Evolução Mensal: Demanda & % SLA</h2>
+          <p class="text-xs text-slate-400">Faixas de SLA: &lt;80% (Vermelho) | 80% a 84,999% (Amarelo) | &ge;85% (Azul)</p>
+        </div>
+        <div class="flex items-center gap-4 text-xs font-semibold">
+          <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-red-500 inline-block"></span> &lt;80%</span>
+          <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-yellow-400 inline-block"></span> 80% - 84,9%</span>
+          <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-blue-600 inline-block"></span> &ge;85%</span>
+          <span class="flex items-center gap-1.5"><span class="w-4 h-0.5 border-t-2 border-dashed border-orange-400 inline-block"></span> Meta (80%)</span>
+        </div>
       </div>
       <div class="h-[400px]">
         <canvas id="graficoEvolutivo"></canvas>
       </div>
     </section>
 
-    <!-- Gráfico 2: Comparativo Homólogo Anual por Mês (Linha Única / Full Width) -->
+    <!-- Gráfico 2: Comparativo Homólogo Anual por Mês (Cinza, Azul Claro e Azul Escuro) -->
     <section class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-3">
       <div class="flex justify-between items-center">
-        <h2 class="text-base font-bold text-slate-800">Comparativo Homólogo Anual por Mês (Jan vs Jan)</h2>
-        <span class="text-xs text-slate-400">Comportamento Sazonal 2024 vs 2025 vs 2026</span>
+        <h2 class="text-base font-bold text-slate-800">Comparativo Homólogo Anual por Mês (Jan vs Jan)[cite: 2, 3]</h2>
+        <span class="text-xs text-slate-400">Comportamento Sazonal[cite: 3]</span>
       </div>
       <div class="h-[380px]">
         <canvas id="chartYoY"></canvas>
@@ -175,7 +183,7 @@
     const mesesNomes = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
     const timelineCompleta = [];
 
-    // Janela temporal padrão de 34 meses
+    // Linha do tempo: Jan/24 a Out/26
     for (let m = 1; m <= 12; m++) timelineCompleta.push({ rotulo: `${mesesNomes[m-1]}/24`, ano: "2024", mes: m, periodo: `2024-${String(m).padStart(2,'0')}` });
     for (let m = 1; m <= 12; m++) timelineCompleta.push({ rotulo: `${mesesNomes[m-1]}/25`, ano: "2025", mes: m, periodo: `2025-${String(m).padStart(2,'0')}` });
     for (let m = 1; m <= 10; m++) timelineCompleta.push({ rotulo: `${mesesNomes[m-1]}/26`, ano: "2026", mes: m, periodo: `2026-${String(m).padStart(2,'0')}` });
@@ -238,7 +246,6 @@
           ddd,
           indicador,
           tipoRede,
-          // Regra: Dentro do prazo vs Fora do prazo
           isDentroSLA: status === "dentro",
           isForaSLA: status === "fora",
           municipio: (r.MUNICIPIO || "Não Identificado").trim(),
@@ -247,7 +254,7 @@
         };
       }).filter(d => d.ano && d.mes > 0);
 
-      // Preenchimento do select de Indicadores
+      // Preenchimento de Indicadores
       const indicadores = [...new Set(dadosBrutos.map(d => d.indicador).filter(Boolean))].sort();
       const selIndicador = document.getElementById("filtro-indicador");
       indicadores.forEach(ind => {
@@ -257,7 +264,7 @@
         selIndicador.appendChild(opt);
       });
 
-      // Preenchimento do select de DDDs
+      // Preenchimento de DDDs
       const ddds = [...new Set(dadosBrutos.map(d => d.ddd).filter(Boolean))].sort((a,b) => Number(a) - Number(b));
       const selDDD = document.getElementById("filtro-ddd");
       ddds.forEach(d => {
@@ -282,12 +289,19 @@
       renderizarTudo();
     }
 
+    // Regra de cores de SLA
+    function getSLAColor(val) {
+      if (val < 80) return '#ef4444'; // Vermelho (< 80%)
+      if (val < 85) return '#eab308'; // Amarelo (80% a 84.999%)
+      return '#2563eb';               // Azul (>= 85%)
+    }
+
     function renderizarTudo() {
       const indSel = document.getElementById("filtro-indicador").value;
       const redeSel = document.getElementById("filtro-rede").value;
       const dddSel = document.getElementById("filtro-ddd").value;
 
-      // Filtro primário pelos seletores
+      // Base filtrada pelos seletores
       const dadosFiltrados = dadosBrutos.filter(d => {
         return (indSel === "TODOS" || d.indicador === indSel) &&
                (redeSel === "TODAS" || d.tipoRede === redeSel) &&
@@ -302,7 +316,6 @@
       // 1. KPIs
       const totalEntrantes = dadosJanela.length;
       const totalDentroSLA = dadosJanela.filter(d => d.isDentroSLA).length;
-      // % SLA = Dentro do Prazo / Total Entrantes
       const pctSLA = totalEntrantes > 0 ? (totalDentroSLA / totalEntrantes * 100) : 0;
       
       const tmaValidos = dadosJanela.filter(d => d.tmaHoras !== null).map(d => d.tmaHoras);
@@ -311,26 +324,37 @@
       document.getElementById("label-total").innerText = totalEntrantes.toLocaleString('pt-BR');
       document.getElementById("kpi-entrantes").innerText = totalEntrantes.toLocaleString('pt-BR');
       document.getElementById("kpi-dentro").innerText = totalDentroSLA.toLocaleString('pt-BR');
-      document.getElementById("kpi-sla-pct").innerText = pctSLA.toFixed(2) + "%";
+      
+      const kpiSlaElem = document.getElementById("kpi-sla-pct");
+      kpiSlaElem.innerText = pctSLA.toFixed(2) + "%";
+      if (pctSLA < 80) {
+        kpiSlaElem.className = "text-2xl font-bold mt-1 text-red-600";
+      } else if (pctSLA < 85) {
+        kpiSlaElem.className = "text-2xl font-bold mt-1 text-yellow-500";
+      } else {
+        kpiSlaElem.className = "text-2xl font-bold mt-1 text-blue-600";
+      }
+
       document.getElementById("kpi-tma").innerText = tmaMedio.toFixed(1) + "h";
 
-      // 2. Gráfico 1: Linha do Tempo Evolutiva (Entrantes, % SLA Dentro, TMA)
+      // 2. Gráfico 1: Linha do Tempo Evolutiva (Sem TMA, com Cores Dinâmicas e Meta 80%)
       const labelsEvolucao = [];
       const volEvolucao = [];
       const slaEvolucao = [];
-      const tmaEvolucao = [];
+      const meta80 = [];
 
       timelineRecorte.forEach(t => {
         labelsEvolucao.push(t.rotulo);
         const reg = dadosFiltrados.filter(d => d.ano === t.ano && d.mes === t.mes);
         const qtd = reg.length;
         const dentro = reg.filter(d => d.isDentroSLA).length;
-        const tmas = reg.filter(d => d.tmaHoras !== null).map(d => d.tmaHoras);
 
         volEvolucao.push(qtd);
         slaEvolucao.push(qtd > 0 ? Number(((dentro / qtd) * 100).toFixed(2)) : 0);
-        tmaEvolucao.push(tmas.length > 0 ? Number((tmas.reduce((a,b) => a+b, 0) / tmas.length).toFixed(1)) : 0);
+        meta80.push(80); // Linha constante de meta
       });
+
+      const coresPontosSLA = slaEvolucao.map(val => getSLAColor(val));
 
       renderChart("graficoEvolutivo", {
         type: 'bar',
@@ -341,33 +365,38 @@
               type: 'bar',
               label: 'Entrantes',
               data: volEvolucao,
-              backgroundColor: 'rgba(99, 102, 241, 0.75)',
-              hoverBackgroundColor: '#4f46e5',
+              backgroundColor: 'rgba(148, 163, 184, 0.45)', // Cinza suave para destacar a linha
+              hoverBackgroundColor: 'rgba(100, 116, 139, 0.75)',
               borderRadius: 4,
               yAxisID: 'y'
             },
             {
               type: 'line',
-              label: '% SLA (Dentro do Prazo)',
+              label: '% SLA (Conformidade)',
               data: slaEvolucao,
-              borderColor: '#10b981',
-              backgroundColor: '#10b981',
-              borderWidth: 2.5,
-              tension: 0.2,
-              pointRadius: 3,
-              yAxisID: 'y1'
+              borderColor: '#94a3b8',
+              borderWidth: 2,
+              pointBackgroundColor: coresPontosSLA,
+              pointBorderColor: coresPontosSLA,
+              pointRadius: 6,
+              pointHoverRadius: 8,
+              tension: 0.25,
+              yAxisID: 'y1',
+              // Colorir os segmentos da linha conforme o valor
+              segment: {
+                borderColor: ctx => getSLAColor(ctx.p1.raw)
+              }
             },
             {
               type: 'line',
-              label: 'TMA Médio (Horas)',
-              data: tmaEvolucao,
-              borderColor: '#f97316',
-              backgroundColor: '#f97316',
+              label: 'Meta (80%)',
+              data: meta80,
+              borderColor: '#fb923c', // Laranja Claro
               borderWidth: 2,
-              borderDash: [4, 4],
-              tension: 0.2,
-              pointRadius: 2.5,
-              yAxisID: 'y2'
+              borderDash: [6, 4],
+              pointRadius: 0,
+              fill: false,
+              yAxisID: 'y1'
             }
           ]
         },
@@ -376,28 +405,56 @@
           maintainAspectRatio: false,
           interaction: { mode: 'index', intersect: false },
           plugins: {
-            legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } }
+            legend: { 
+              position: 'top', 
+              labels: { 
+                boxWidth: 12, 
+                font: { size: 11 } 
+              } 
+            },
+            tooltip: {
+              callbacks: {
+                label: function(ctx) {
+                  if (ctx.dataset.label.includes('SLA') || ctx.dataset.label.includes('Meta')) {
+                    return `${ctx.dataset.label}: ${ctx.raw}%`;
+                  }
+                  return `${ctx.dataset.label}: ${ctx.raw.toLocaleString('pt-BR')}`;
+                }
+              }
+            }
           },
           scales: {
             x: { grid: { display: false }, ticks: { maxRotation: 45, minRotation: 45, font: { size: 10 } } },
-            y: { type: 'linear', position: 'left', beginAtZero: true, title: { display: true, text: 'Volume' } },
-            y1: { type: 'linear', position: 'right', beginAtZero: true, max: 100, grid: { drawOnChartArea: false }, ticks: { callback: v => v + '%' }, title: { display: true, text: '% SLA' } },
-            y2: { type: 'linear', position: 'right', beginAtZero: true, grid: { drawOnChartArea: false }, ticks: { display: false } }
+            y: { type: 'linear', position: 'left', beginAtZero: true, title: { display: true, text: 'Volume de Chamados' } },
+            y1: { 
+              type: 'linear', 
+              position: 'right', 
+              beginAtZero: true, 
+              max: 100, 
+              grid: { drawOnChartArea: false }, 
+              ticks: { callback: v => v + '%' }, 
+              title: { display: true, text: '% SLA' } 
+            }
           }
         }
       });
 
-      // 3. Gráfico 2: Comparativo Homólogo Anual por Mês (Linha Única)
+      // 3. Gráfico 2: Comparativo Homólogo (2024 = Cinza, 2025 = Azul Claro, 2026 = Azul Escuro)
+      const mapaCoresAnos = {
+        '2024': '#94a3b8', // Cinza
+        '2025': '#38bdf8', // Azul Claro
+        '2026': '#1e3a8a'  // Azul Escuro
+      };
+
       const anosParaComp = [...new Set(dadosFiltrados.map(d => d.ano))].sort();
-      const cores = ['#6366f1', '#06b6d4', '#f59e0b', '#ec4899'];
-      const datasetsYoY = anosParaComp.map((ano, idx) => {
+      const datasetsYoY = anosParaComp.map(ano => {
         const dadosMes = Array.from({length: 12}, (_, m) => {
           return dadosFiltrados.filter(d => d.ano === ano && d.mes === (m + 1)).length;
         });
         return {
           label: ano,
           data: dadosMes,
-          backgroundColor: cores[idx % cores.length],
+          backgroundColor: mapaCoresAnos[ano] || '#cbd5e1',
           borderRadius: 4
         };
       });
@@ -441,7 +498,7 @@
         }
       });
 
-      // 5. Gráfico 4: Desempenho de SLA por DDD (% Dentro do Prazo)
+      // 5. Gráfico 4: Desempenho de SLA por DDD (% Dentro do Prazo) com Semáforo de Cores
       const dddsUnicos = [...new Set(dadosJanela.map(d => d.ddd).filter(Boolean))];
       const statsDDD = dddsUnicos.map(ddd => {
         const dddRows = dadosJanela.filter(d => d.ddd === ddd);
@@ -451,13 +508,19 @@
         return { ddd, total, sla };
       });
 
-      // Ordenar pelos melhores desempenhos de SLA
       const topDDDsSla = [...statsDDD].sort((a,b) => b.sla - a.sla).slice(0, 10);
+      const coresBarrasDDD = topDDDsSla.map(d => getSLAColor(d.sla));
+
       renderChart("chartDDDSla", {
         type: 'bar',
         data: {
           labels: topDDDsSla.map(d => "DDD " + d.ddd),
-          datasets: [{ label: '% SLA Dentro', data: topDDDsSla.map(d => d.sla), backgroundColor: '#3b82f6', borderRadius: 4 }]
+          datasets: [{ 
+            label: '% SLA Dentro', 
+            data: topDDDsSla.map(d => d.sla), 
+            backgroundColor: coresBarrasDDD, 
+            borderRadius: 4 
+          }]
         },
         options: {
           responsive: true,
@@ -466,7 +529,7 @@
         }
       });
 
-      // 6. Preenchimento dos Top 10
+      // 6. Preenchimento das Tabelas Top 10
       popularTabela("tbl-top-mun-vol", agruparTop(dadosJanela, 'municipio', 10));
       popularTabela("tbl-top-mun-fora", agruparTop(dadosJanela.filter(d => d.isForaSLA), 'municipio', 10));
       popularTabela("tbl-top-alarmes", agruparTop(dadosJanela, 'tipoAlarme', 10));
