@@ -11,7 +11,7 @@
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
   <style>
-    /* Estilo para barra de rolagem customizada nos menus de multisseleção */
+    /* Estilo para barra de rolagem nos menus de seleção */
     .custom-scroll::-webkit-scrollbar { width: 5px; }
     .custom-scroll::-webkit-scrollbar-track { background: #f1f5f9; }
     .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
@@ -26,19 +26,19 @@
     <header class="bg-indigo-950 text-white p-6 rounded-2xl shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
       <div>
         <h1 class="text-xl md:text-2xl font-black tracking-tight">Portal Analítico de Volumetria & Desempenho</h1>
-        <p class="text-xs text-indigo-200 mt-1">Série temporal contínua: Jan/2024 a Out/2026 | Filtros de Múltipla Escolha</p>
+        <p class="text-xs text-indigo-200 mt-1">Série temporal contínua: Jan/2024 a Out/2026 | SLA = Chamados Dentro do Prazo / Total</p>
       </div>
       <div id="status-carga" class="text-xs font-semibold px-3 py-1.5 rounded-full bg-indigo-900 text-indigo-200 flex items-center gap-2">
         <span class="animate-spin text-sm">↻</span> Carregando base online...
       </div>
     </header>
 
-    <!-- Barra de Filtros com Múltipla Seleção -->
+    <!-- Barra de Filtros (Rótulos limpos sem a escrita 'Múltiplo') -->
     <section class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 grid grid-cols-1 md:grid-cols-5 gap-4 items-end relative z-30">
       
-      <!-- Multi-select: Anos -->
+      <!-- Filtro: Anos -->
       <div class="relative">
-        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Anos (Múltiplo)</label>
+        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Ano</label>
         <button id="btn-dropdown-anos" type="button" onclick="toggleDropdown('dropdown-anos')" class="w-full text-xs border rounded-lg p-2.5 bg-slate-50 border-slate-300 text-left flex justify-between items-center focus:ring-2 focus:ring-indigo-500 shadow-sm">
           <span id="label-dropdown-anos" class="truncate font-medium text-slate-700">Todos os Anos</span>
           <svg class="w-4 h-4 ml-1 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
@@ -53,9 +53,9 @@
         </div>
       </div>
 
-      <!-- Multi-select: Indicadores -->
+      <!-- Filtro: Indicador -->
       <div class="relative">
-        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Indicador (Múltiplo)</label>
+        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Indicador</label>
         <button id="btn-dropdown-indicador" type="button" onclick="toggleDropdown('dropdown-indicador')" class="w-full text-xs border rounded-lg p-2.5 bg-slate-50 border-slate-300 text-left flex justify-between items-center focus:ring-2 focus:ring-indigo-500 shadow-sm">
           <span id="label-dropdown-indicador" class="truncate font-medium text-slate-700">Todos os Indicadores</span>
           <svg class="w-4 h-4 ml-1 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
@@ -70,7 +70,7 @@
         </div>
       </div>
 
-      <!-- Tipo de Rede -->
+      <!-- Filtro: Tipo de Rede -->
       <div>
         <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Tipo de Rede</label>
         <select id="filtro-rede" onchange="renderizarTudo()" class="w-full text-xs border rounded-lg p-2.5 bg-slate-50 border-slate-300 text-slate-700 font-medium focus:ring-2 focus:ring-indigo-500 shadow-sm">
@@ -80,9 +80,9 @@
         </select>
       </div>
 
-      <!-- Multi-select: DDDs -->
+      <!-- Filtro: DDD -->
       <div class="relative">
-        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">DDD (Múltiplo)</label>
+        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">DDD</label>
         <button id="btn-dropdown-ddd" type="button" onclick="toggleDropdown('dropdown-ddd')" class="w-full text-xs border rounded-lg p-2.5 bg-slate-50 border-slate-300 text-left flex justify-between items-center focus:ring-2 focus:ring-indigo-500 shadow-sm">
           <span id="label-dropdown-ddd" class="truncate font-medium text-slate-700">Todos os DDDs</span>
           <svg class="w-4 h-4 ml-1 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
@@ -246,12 +246,11 @@
     let dadosBrutos = [];
     let chartsInstancias = {};
 
-    // Listas únicas para os filtros
     let listaAnosGeral = [];
     let listaIndicadoresGeral = [];
     let listaDDDsGeral = [];
 
-    // Plugin para desenhar rótulos verticais na base interna das barras com fonte ampliada (13px)
+    // Plugin para rótulos verticais na base interna das barras com fonte de 13px
     const pluginRotulosNaBase = {
       id: 'rotulosNaBase',
       afterDatasetsDraw(chart) {
@@ -367,7 +366,7 @@
       return true;
     }
 
-    // Controle de Abertura e Fechamento dos Dropdowns Customizados
+    // Controle dos Menus Dropdown
     function toggleDropdown(id) {
       const dropdown = document.getElementById(id);
       const estaAberto = !dropdown.classList.contains('hidden');
@@ -382,7 +381,6 @@
       });
     }
 
-    // Fecha ao clicar fora
     window.addEventListener('click', (e) => {
       if (!e.target.closest('#btn-dropdown-anos') && !e.target.closest('#dropdown-anos') &&
           !e.target.closest('#btn-dropdown-indicador') && !e.target.closest('#dropdown-indicador') &&
@@ -445,18 +443,12 @@
         };
       }).filter(d => d.ano && d.mes > 0);
 
-      // Extrai listas de opções únicas
       listaAnosGeral = [...new Set(dadosBrutos.map(d => d.ano).filter(Boolean))].sort();
       listaIndicadoresGeral = [...new Set(dadosBrutos.map(d => d.indicador).filter(Boolean))].sort();
       listaDDDsGeral = [...new Set(dadosBrutos.map(d => d.ddd).filter(Boolean))].sort((a,b) => Number(a) - Number(b));
 
-      // Constrói os Checkboxes de Anos
       popularCheckboxList('lista-checkbox-anos', 'chk-ano', listaAnosGeral, (val) => val);
-      
-      // Constrói os Checkboxes de Indicadores
       popularCheckboxList('lista-checkbox-indicador', 'chk-indicador', listaIndicadoresGeral, (val) => val);
-
-      // Constrói os Checkboxes de DDDs
       popularCheckboxList('lista-checkbox-ddd', 'chk-ddd', listaDDDsGeral, (val) => "DDD " + val);
 
       renderizarTudo();
@@ -488,25 +480,22 @@
     }
 
     function atualizarRotulosDropdowns(anosSel, indSel, dddsSel) {
-      // Rótulo Anos
       const lblAnos = document.getElementById('label-dropdown-anos');
-      if (anosSel.length === 0) lblAnos.innerText = "Nenhum Ano Selecionado";
+      if (anosSel.length === 0) lblAnos.innerText = "Nenhum Selecionado";
       else if (anosSel.length === listaAnosGeral.length) lblAnos.innerText = "Todos os Anos";
       else lblAnos.innerText = anosSel.join(", ");
 
-      // Rótulo Indicadores
       const lblInd = document.getElementById('label-dropdown-indicador');
       if (indSel.length === 0) lblInd.innerText = "Nenhum Selecionado";
       else if (indSel.length === listaIndicadoresGeral.length) lblInd.innerText = "Todos os Indicadores";
       else if (indSel.length === 1) lblInd.innerText = indSel[0];
-      else lblInd.innerText = `${indSel.length} Indicadores Selecionados`;
+      else lblInd.innerText = `${indSel.length} Indicadores`;
 
-      // Rótulo DDDs
       const lblDDD = document.getElementById('label-dropdown-ddd');
-      if (dddsSel.length === 0) lblDDD.innerText = "Nenhum DDD Selecionado";
+      if (dddsSel.length === 0) lblDDD.innerText = "Nenhum Selecionado";
       else if (dddsSel.length === listaDDDsGeral.length) lblDDD.innerText = "Todos os DDDs";
       else if (dddsSel.length <= 3) lblDDD.innerText = dddsSel.map(d => "DDD " + d).join(", ");
-      else lblDDD.innerText = `${dddsSel.length} DDDs Selecionados`;
+      else lblDDD.innerText = `${dddsSel.length} DDDs`;
     }
 
     function getSLAColor(val) {
@@ -523,12 +512,10 @@
 
       atualizarRotulosDropdowns(anosSelecionados, indicadoresSelecionados, dddsSelecionados);
 
-      // Conjuntos para checagem rápida em O(1)
       const setAnos = new Set(anosSelecionados);
       const setIndicadores = new Set(indicadoresSelecionados);
       const setDDDs = new Set(dddsSelecionados);
 
-      // Filtro geral aplicado à base
       const dadosFiltrados = dadosBrutos.filter(d => {
         return setAnos.has(d.ano) &&
                setIndicadores.has(d.indicador) &&
@@ -536,7 +523,6 @@
                setDDDs.has(d.ddd);
       });
 
-      // Recorta a timeline apenas para os anos ativos nos filtros
       const timelineRecorte = timelineCompleta.filter(t => setAnos.has(t.ano));
 
       // 1. KPIs
@@ -653,7 +639,7 @@
         }
       });
 
-      // 3. Gráfico 2: Comparativo Homólogo (Considera apenas os anos selecionados)
+      // 3. Gráfico 2: Comparativo Homólogo
       const mapaCoresAnos = {
         '2024': '#94a3b8',
         '2025': '#5b92d6',
