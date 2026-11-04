@@ -106,31 +106,36 @@
       </div>
     </section>
 
-    <!-- Gráfico 2: Comparativo Homólogo Anual por Mês com Variação Percentual no Topo -->
+    <!-- Gráfico 2: Comparativo Homólogo Anual por Mês com Variação Ampliada no Topo -->
     <section class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-3">
       <div class="flex justify-between items-center">
         <h2 class="text-base font-bold text-slate-800">Comparativo Homólogo Anual por Mês (Jan vs Jan)</h2>
         <span class="text-xs text-slate-400">Comportamento Sazonal 2024 vs 2025 vs 2026</span>
       </div>
-      <div class="h-[440px]">
+      <div class="h-[460px]">
         <canvas id="chartYoY"></canvas>
       </div>
     </section>
 
-    <!-- Gráficos 3 e 4: Variação Percentual MoM (%) e Top DDDs por % SLA -->
-    <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+    <!-- Gráficos 3 e 4: Variação Percentual MoM (%) [2/3] e Top DDDs por % SLA [1/3] -->
+    <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      
+      <!-- 2/3 da Linha: Variação Mês a Mês -->
+      <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 lg:col-span-2">
         <h3 class="text-sm font-bold text-slate-700 mb-3">Variação Percentual de Entrantes Mês a Mês (MoM %)</h3>
         <div class="h-64">
           <canvas id="chartMoM"></canvas>
         </div>
       </div>
-      <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
-        <h3 class="text-sm font-bold text-slate-700 mb-3">Top DDDs por Desempenho de SLA (% Dentro do Prazo)</h3>
+
+      <!-- 1/3 da Linha: Top DDDs -->
+      <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 lg:col-span-1">
+        <h3 class="text-sm font-bold text-slate-700 mb-3">Top DDDs por Desempenho de SLA</h3>
         <div class="h-64">
           <canvas id="chartDDDSla"></canvas>
         </div>
       </div>
+
     </section>
 
     <!-- Seção Top 10 Detalhamentos -->
@@ -191,7 +196,7 @@
     let chartsInstancias = {};
     let anoAtivo = "TODOS";
 
-    // Plugin customizado do Chart.js para desenhar rótulos verticais na base interna das barras
+    // Plugin para desenhar rótulos verticais na base interna das barras
     const pluginRotulosNaBase = {
       id: 'rotulosNaBase',
       afterDatasetsDraw(chart) {
@@ -206,16 +211,15 @@
             if (val === null || val === undefined || val === 0) return;
 
             const { x, base, height } = element;
-            // Se a barra for muito pequena para caber o texto na vertical, pula
-            if (Math.abs(height) < 20) return;
+            if (Math.abs(height) < 22) return;
 
             ctx.save();
             ctx.translate(x, base - 8);
-            ctx.rotate(-Math.PI / 2); // Rotação vertical de -90 graus
+            ctx.rotate(-Math.PI / 2);
             ctx.textAlign = 'left';
             ctx.textBaseline = 'middle';
-            ctx.font = 'bold 9px sans-serif';
-            ctx.fillStyle = '#ffffff'; // Branco para destacar no interior da barra
+            ctx.font = 'bold 10px sans-serif';
+            ctx.fillStyle = '#ffffff';
             ctx.fillText(Number(val).toLocaleString('pt-BR'), 0, 0);
             ctx.restore();
           });
@@ -223,12 +227,12 @@
       }
     };
 
-    // Plugin customizado para calcular e desenhar as variações percentuais anuais no topo de cada mês (Estilo Imagem 3)
+    // Plugin ampliado para calcular e desenhar as variações percentuais anuais no topo de cada mês
     const pluginVariacaoNoTopoYoY = {
       id: 'variacaoNoTopoYoY',
       afterDatasetsDraw(chart) {
         if (chart.canvas.id !== 'chartYoY') return;
-        const { ctx, scales: { x, y } } = chart;
+        const { ctx } = chart;
         const ds2024 = chart.data.datasets.find(d => d.label === '2024');
         const ds2025 = chart.data.datasets.find(d => d.label === '2025');
         const ds2026 = chart.data.datasets.find(d => d.label === '2026');
@@ -244,35 +248,51 @@
           const meta25 = chart.getDatasetMeta(chart.data.datasets.indexOf(ds2025)).data[idx];
           const meta26 = ds2026 ? chart.getDatasetMeta(chart.data.datasets.indexOf(ds2026)).data[idx] : null;
 
-          // Variação 24 -> 25
-          if (v24 > 0 && v25 > 0 && meta25) {
+          // Variação 24 -> 25 (posicionada sobre o vão entre as barras 2024 e 2025)
+          if (v24 > 0 && v25 > 0 && meta24 && meta25) {
             const pct = ((v25 - v24) / v24) * 100;
             const sinal = pct >= 0 ? '+' : '';
             const texto = `${sinal}${pct.toFixed(1)}%`;
-            const cor = pct >= 0 ? '#10b981' : '#ef4444';
-            const posY = Math.min(meta24.y, meta25.y) - 8;
+            const cor = pct >= 0 ? '#059669' : '#dc2626';
+            const posX = (meta24.x + meta25.x) / 2;
+            const posY = Math.min(meta24.y, meta25.y) - 10;
 
             ctx.save();
-            ctx.font = 'bold 8px sans-serif';
+            ctx.font = 'bold 11px sans-serif'; // Fonte ampliada para melhor visualização
             ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+            
+            // Fundo de destaque para não misturar com as linhas de grade
+            const textWidth = ctx.measureText(texto).width;
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+            ctx.fillRect(posX - (textWidth / 2) - 2, posY - 12, textWidth + 4, 13);
+
             ctx.fillStyle = cor;
-            ctx.fillText(texto, (meta24.x + meta25.x) / 2, posY);
+            ctx.fillText(texto, posX, posY);
             ctx.restore();
           }
 
-          // Variação 25 -> 26
-          if (v25 > 0 && v26 > 0 && meta26) {
+          // Variação 25 -> 26 (posicionada sobre o vão entre as barras 2025 e 2026)
+          if (v25 > 0 && v26 > 0 && meta25 && meta26) {
             const pct = ((v26 - v25) / v25) * 100;
             const sinal = pct >= 0 ? '+' : '';
             const texto = `${sinal}${pct.toFixed(1)}%`;
-            const cor = pct >= 0 ? '#10b981' : '#ef4444';
-            const posY = Math.min(meta25.y, meta26.y) - 8;
+            const cor = pct >= 0 ? '#059669' : '#dc2626';
+            const posX = (meta25.x + meta26.x) / 2;
+            const posY = Math.min(meta25.y, meta26.y) - 10;
 
             ctx.save();
-            ctx.font = 'bold 8px sans-serif';
+            ctx.font = 'bold 11px sans-serif'; // Fonte ampliada para melhor visualização
             ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+
+            // Fundo de destaque
+            const textWidth = ctx.measureText(texto).width;
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+            ctx.fillRect(posX - (textWidth / 2) - 2, posY - 12, textWidth + 4, 13);
+
             ctx.fillStyle = cor;
-            ctx.fillText(texto, (meta25.x + meta26.x) / 2, posY);
+            ctx.fillText(texto, posX, posY);
             ctx.restore();
           }
         });
@@ -289,6 +309,16 @@
       const [hora, min, seg] = partes[1].split(":").map(Number);
       const anoCompleto = ano < 100 ? 2000 + ano : ano;
       return new Date(anoCompleto, mes - 1, dia, hora, min, seg);
+    }
+
+    // Filtro rigoroso de DDD: descarta 11, null, nan, vazios ou indefinidos
+    function dddValido(dddStr) {
+      if (!dddStr) return false;
+      const limpo = String(dddStr).replace(/\.0$/, "").trim().toLowerCase();
+      if (limpo === '' || limpo === 'null' || limpo === 'undefined' || limpo === 'nan' || limpo === '11') {
+        return false;
+      }
+      return true;
     }
 
     window.addEventListener("DOMContentLoaded", () => {
@@ -312,7 +342,7 @@
       dadosBrutos = linhas.map(r => {
         const ano = String(r.ANO || "").trim();
         const mes = parseInt(r.MÊS || 0, 10);
-        const ddd = String(r.DDD || "").replace(/\.0$/, "").trim();
+        const dddRaw = String(r.DDD || "").replace(/\.0$/, "").trim();
         const planta = String(r.PLANTA || "");
         const status = String(r.STATUS_INDICADOR || "").toLowerCase().trim();
         const indicador = String(r.INDICADOR || "Não Informado").trim();
@@ -327,6 +357,8 @@
         if (dtCriacao && dtEncerramento && dtEncerramento >= dtCriacao) {
           tmaHoras = (dtEncerramento - dtCriacao) / (1000 * 60 * 60);
         }
+
+        const ddd = dddValido(dddRaw) ? dddRaw : null;
 
         return {
           ano,
@@ -353,7 +385,7 @@
         selIndicador.appendChild(opt);
       });
 
-      // Preenchimento de DDDs
+      // Preenchimento de DDDs válidos (Sem 11, Sem null)
       const ddds = [...new Set(dadosBrutos.map(d => d.ddd).filter(Boolean))].sort((a,b) => Number(a) - Number(b));
       const selDDD = document.getElementById("filtro-ddd");
       ddds.forEach(d => {
@@ -423,7 +455,7 @@
 
       document.getElementById("kpi-tma").innerText = tmaMedio.toFixed(1) + "h";
 
-      // 2. Gráfico 1: Linha do Tempo Evolutiva (Colunas em Azul Escuro, Pontos Menores)
+      // 2. Gráfico 1: Linha do Tempo Evolutiva
       const labelsEvolucao = [];
       const volEvolucao = [];
       const slaEvolucao = [];
@@ -451,7 +483,7 @@
               type: 'bar',
               label: 'Entrantes',
               data: volEvolucao,
-              backgroundColor: 'rgba(30, 58, 138, 0.85)', // Azul Escuro solicitado
+              backgroundColor: 'rgba(30, 58, 138, 0.85)',
               hoverBackgroundColor: '#1e3a8a',
               borderRadius: 3,
               yAxisID: 'y'
@@ -464,8 +496,8 @@
               borderWidth: 2,
               pointBackgroundColor: coresPontosSLA,
               pointBorderColor: coresPontosSLA,
-              pointRadius: 3,          // Bolinha reduzida
-              pointHoverRadius: 5,     // Hover proporcional
+              pointRadius: 3,
+              pointHoverRadius: 5,
               tension: 0.25,
               yAxisID: 'y1',
               segment: {
@@ -518,11 +550,11 @@
         }
       });
 
-      // 3. Gráfico 2: Comparativo Homólogo (Sem resíduos de texto, Variação no Topo e Rótulo Vertical na Base)
+      // 3. Gráfico 2: Comparativo Homólogo (com Variação Ampliada no Topo)
       const mapaCoresAnos = {
-        '2024': '#94a3b8', // Cinza
-        '2025': '#38bdf8', // Azul Claro
-        '2026': '#1e3a8a'  // Azul Escuro
+        '2024': '#94a3b8',
+        '2025': '#38bdf8',
+        '2026': '#1e3a8a'
       };
 
       const anosParaComp = [...new Set(dadosFiltrados.map(d => d.ano))].sort();
@@ -546,14 +578,14 @@
           maintainAspectRatio: false,
           interaction: { mode: 'index', intersect: false },
           layout: {
-            padding: { top: 25 } // Espaço superior para caber as porcentagens de variação
+            padding: { top: 32 } // Espaço superior generoso para caber as porcentagens maiores
           },
           plugins: { legend: { position: 'top' } },
           scales: { y: { beginAtZero: true, title: { display: true, text: 'Volume de Chamados' } } }
         }
       });
 
-      // 4. Gráfico 3: Variação Mês a Mês (MoM %)
+      // 4. Gráfico 3: Variação Mês a Mês (MoM %) - Ocupa 2/3 da Linha
       const momLabels = [];
       const momValores = [];
       for (let i = 1; i < volEvolucao.length; i++) {
@@ -571,7 +603,7 @@
             data: momValores,
             backgroundColor: momValores.map(v => v >= 0 ? '#10b981' : '#f43f5e'),
             borderRadius: 3,
-            displayDataLabels: false // Evita desenhar número vertical nas barrinhas estreitas de MoM
+            displayDataLabels: false
           }]
         },
         options: {
@@ -581,7 +613,7 @@
         }
       });
 
-      // 5. Gráfico 4: Desempenho de SLA por DDD
+      // 5. Gráfico 4: Desempenho de SLA por DDD (Sem DDD 11, Sem null) - Ocupa 1/3 da Linha
       const dddsUnicos = [...new Set(dadosJanela.map(d => d.ddd).filter(Boolean))];
       const statsDDD = dddsUnicos.map(ddd => {
         const dddRows = dadosJanela.filter(d => d.ddd === ddd);
@@ -589,7 +621,7 @@
         const dentro = dddRows.filter(d => d.isDentroSLA).length;
         const sla = total > 0 ? (dentro / total * 100) : 0;
         return { ddd, total, sla };
-      });
+      }).filter(d => d.total >= 10); // Elimina ruídos com menos de 10 chamados no período
 
       const topDDDsSla = [...statsDDD].sort((a,b) => b.sla - a.sla).slice(0, 10);
       const coresBarrasDDD = topDDDsSla.map(d => getSLAColor(d.sla));
@@ -609,11 +641,12 @@
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          scales: { y: { max: 100, ticks: { callback: v => v.toFixed(1) + '%' } } }
+          plugins: { legend: { display: false } },
+          scales: { y: { max: 100, ticks: { callback: v => v.toFixed(0) + '%' } } }
         }
       });
 
-      // 6. Tabelas Top 10
+      // 6. Preenchimento das Tabelas Top 10
       popularTabela("tbl-top-mun-vol", agruparTop(dadosJanela, 'municipio', 10));
       popularTabela("tbl-top-mun-fora", agruparTop(dadosJanela.filter(d => d.isForaSLA), 'municipio', 10));
       popularTabela("tbl-top-alarmes", agruparTop(dadosJanela, 'tipoAlarme', 10));
