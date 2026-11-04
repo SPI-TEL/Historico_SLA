@@ -9,6 +9,14 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
+  <style>
+    /* Estilo para barra de rolagem customizada nos menus de multisseleção */
+    .custom-scroll::-webkit-scrollbar { width: 5px; }
+    .custom-scroll::-webkit-scrollbar-track { background: #f1f5f9; }
+    .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    .custom-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+  </style>
 </head>
 <body class="bg-slate-100 text-slate-800 font-sans p-4 md:p-8">
 
@@ -18,49 +26,78 @@
     <header class="bg-indigo-950 text-white p-6 rounded-2xl shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
       <div>
         <h1 class="text-xl md:text-2xl font-black tracking-tight">Portal Analítico de Volumetria & Desempenho</h1>
-        <p class="text-xs text-indigo-200 mt-1">Série temporal contínua: Jan/2024 a Out/2026 | SLA = Chamados Dentro do Prazo / Total</p>
+        <p class="text-xs text-indigo-200 mt-1">Série temporal contínua: Jan/2024 a Out/2026 | Filtros de Múltipla Escolha</p>
       </div>
       <div id="status-carga" class="text-xs font-semibold px-3 py-1.5 rounded-full bg-indigo-900 text-indigo-200 flex items-center gap-2">
         <span class="animate-spin text-sm">↻</span> Carregando base online...
       </div>
     </header>
 
-    <!-- Filtros Globais e Seletor de Período -->
-    <section class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
-      <div>
-        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Janela Temporal</label>
-        <div class="flex gap-1" id="btn-anos">
-          <button onclick="filtrarPeriodo('TODOS')" class="px-3 py-1.5 text-xs font-semibold rounded bg-indigo-600 text-white shadow-sm transition">Geral</button>
-          <button onclick="filtrarPeriodo('2024')" class="px-3 py-1.5 text-xs font-semibold rounded bg-slate-100 hover:bg-slate-200 text-slate-700 transition">2024</button>
-          <button onclick="filtrarPeriodo('2025')" class="px-3 py-1.5 text-xs font-semibold rounded bg-slate-100 hover:bg-slate-200 text-slate-700 transition">2025</button>
-          <button onclick="filtrarPeriodo('2026')" class="px-3 py-1.5 text-xs font-semibold rounded bg-slate-100 hover:bg-slate-200 text-slate-700 transition">2026</button>
+    <!-- Barra de Filtros com Múltipla Seleção -->
+    <section class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 grid grid-cols-1 md:grid-cols-5 gap-4 items-end relative z-30">
+      
+      <!-- Multi-select: Anos -->
+      <div class="relative">
+        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Anos (Múltiplo)</label>
+        <button id="btn-dropdown-anos" type="button" onclick="toggleDropdown('dropdown-anos')" class="w-full text-xs border rounded-lg p-2.5 bg-slate-50 border-slate-300 text-left flex justify-between items-center focus:ring-2 focus:ring-indigo-500 shadow-sm">
+          <span id="label-dropdown-anos" class="truncate font-medium text-slate-700">Todos os Anos</span>
+          <svg class="w-4 h-4 ml-1 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+        </button>
+
+        <div id="dropdown-anos" class="hidden absolute top-full left-0 mt-1.5 w-full bg-white border border-slate-200 rounded-xl shadow-xl p-3 z-50">
+          <div class="flex justify-between items-center pb-2 mb-2 border-b border-slate-100 text-[11px]">
+            <button onclick="selecionarTodos('ano', true)" class="text-indigo-600 font-bold hover:underline">Marcar Todos</button>
+            <button onclick="selecionarTodos('ano', false)" class="text-slate-400 font-semibold hover:underline">Limpar</button>
+          </div>
+          <div id="lista-checkbox-anos" class="space-y-1.5 max-h-48 overflow-y-auto custom-scroll text-xs"></div>
         </div>
       </div>
 
-      <!-- Filtro por Indicador -->
-      <div>
-        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Indicador</label>
-        <select id="filtro-indicador" onchange="renderizarTudo()" class="w-full text-xs border rounded-lg p-2 bg-slate-50 focus:ring-2 focus:ring-indigo-500">
-          <option value="TODOS">Todos os Indicadores</option>
-        </select>
+      <!-- Multi-select: Indicadores -->
+      <div class="relative">
+        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Indicador (Múltiplo)</label>
+        <button id="btn-dropdown-indicador" type="button" onclick="toggleDropdown('dropdown-indicador')" class="w-full text-xs border rounded-lg p-2.5 bg-slate-50 border-slate-300 text-left flex justify-between items-center focus:ring-2 focus:ring-indigo-500 shadow-sm">
+          <span id="label-dropdown-indicador" class="truncate font-medium text-slate-700">Todos os Indicadores</span>
+          <svg class="w-4 h-4 ml-1 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+        </button>
+
+        <div id="dropdown-indicador" class="hidden absolute top-full left-0 mt-1.5 w-64 bg-white border border-slate-200 rounded-xl shadow-xl p-3 z-50">
+          <div class="flex justify-between items-center pb-2 mb-2 border-b border-slate-100 text-[11px]">
+            <button onclick="selecionarTodos('indicador', true)" class="text-indigo-600 font-bold hover:underline">Marcar Todos</button>
+            <button onclick="selecionarTodos('indicador', false)" class="text-slate-400 font-semibold hover:underline">Limpar</button>
+          </div>
+          <div id="lista-checkbox-indicador" class="space-y-1.5 max-h-48 overflow-y-auto custom-scroll text-xs"></div>
+        </div>
       </div>
 
+      <!-- Tipo de Rede -->
       <div>
         <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Tipo de Rede</label>
-        <select id="filtro-rede" onchange="renderizarTudo()" class="w-full text-xs border rounded-lg p-2 bg-slate-50 focus:ring-2 focus:ring-indigo-500">
+        <select id="filtro-rede" onchange="renderizarTudo()" class="w-full text-xs border rounded-lg p-2.5 bg-slate-50 border-slate-300 text-slate-700 font-medium focus:ring-2 focus:ring-indigo-500 shadow-sm">
           <option value="TODAS">Todas (Fixa + Móvel)</option>
           <option value="Móvel">Apenas Móvel</option>
           <option value="Fixa">Apenas Fixa</option>
         </select>
       </div>
 
-      <div>
-        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">DDD</label>
-        <select id="filtro-ddd" onchange="renderizarTudo()" class="w-full text-xs border rounded-lg p-2 bg-slate-50 focus:ring-2 focus:ring-indigo-500">
-          <option value="TODOS">Todos os DDDs</option>
-        </select>
+      <!-- Multi-select: DDDs -->
+      <div class="relative">
+        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">DDD (Múltiplo)</label>
+        <button id="btn-dropdown-ddd" type="button" onclick="toggleDropdown('dropdown-ddd')" class="w-full text-xs border rounded-lg p-2.5 bg-slate-50 border-slate-300 text-left flex justify-between items-center focus:ring-2 focus:ring-indigo-500 shadow-sm">
+          <span id="label-dropdown-ddd" class="truncate font-medium text-slate-700">Todos os DDDs</span>
+          <svg class="w-4 h-4 ml-1 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+        </button>
+
+        <div id="dropdown-ddd" class="hidden absolute top-full left-0 mt-1.5 w-56 bg-white border border-slate-200 rounded-xl shadow-xl p-3 z-50">
+          <div class="flex justify-between items-center pb-2 mb-2 border-b border-slate-100 text-[11px]">
+            <button onclick="selecionarTodos('ddd', true)" class="text-indigo-600 font-bold hover:underline">Marcar Todos</button>
+            <button onclick="selecionarTodos('ddd', false)" class="text-slate-400 font-semibold hover:underline">Limpar</button>
+          </div>
+          <div id="lista-checkbox-ddd" class="space-y-1.5 max-h-48 overflow-y-auto custom-scroll text-xs"></div>
+        </div>
       </div>
 
+      <!-- Contador de Chamados Filtrados -->
       <div class="text-right border-l pl-4 border-slate-100">
         <span class="text-xs text-slate-400 block font-medium">Chamados Filtrados</span>
         <span id="label-total" class="text-2xl font-black text-slate-800">0</span>
@@ -110,7 +147,7 @@
     <section class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-3">
       <div class="flex justify-between items-center">
         <h2 class="text-base font-bold text-slate-800">Comparativo Homólogo Anual por Mês (Jan vs Jan)</h2>
-        <span class="text-xs text-slate-400">Comportamento Sazonal 2024 vs 2025 vs 2026</span>
+        <span class="text-xs text-slate-400">Comportamento Sazonal dos Anos Selecionados</span>
       </div>
       <div class="h-[460px]">
         <canvas id="chartYoY"></canvas>
@@ -208,7 +245,11 @@
 
     let dadosBrutos = [];
     let chartsInstancias = {};
-    let anoAtivo = "TODOS";
+
+    // Listas únicas para os filtros
+    let listaAnosGeral = [];
+    let listaIndicadoresGeral = [];
+    let listaDDDsGeral = [];
 
     // Plugin para desenhar rótulos verticais na base interna das barras com fonte ampliada (13px)
     const pluginRotulosNaBase = {
@@ -225,15 +266,14 @@
             if (val === null || val === undefined || val === 0) return;
 
             const { x, base, height } = element;
-            // Só desenha se a coluna tiver altura suficiente para o texto
             if (Math.abs(height) < 26) return;
 
             ctx.save();
             ctx.translate(x, base - 10);
-            ctx.rotate(-Math.PI / 2); // Rotação vertical de -90 graus
+            ctx.rotate(-Math.PI / 2);
             ctx.textAlign = 'left';
             ctx.textBaseline = 'middle';
-            ctx.font = 'bold 13px sans-serif'; // Fonte ampliada para máxima legibilidade
+            ctx.font = 'bold 13px sans-serif';
             ctx.fillStyle = '#ffffff';
             ctx.fillText(Number(val).toLocaleString('pt-BR'), 0, 0);
             ctx.restore();
@@ -252,15 +292,13 @@
         const ds2025 = chart.data.datasets.find(d => d.label === '2025');
         const ds2026 = chart.data.datasets.find(d => d.label === '2026');
 
-        if (!ds2024 || !ds2025) return;
-
         mesesNomes.forEach((mes, idx) => {
-          const v24 = ds2024.data[idx] || 0;
-          const v25 = ds2025.data[idx] || 0;
+          const v24 = ds2024 ? (ds2024.data[idx] || 0) : 0;
+          const v25 = ds2025 ? (ds2025.data[idx] || 0) : 0;
           const v26 = ds2026 ? (ds2026.data[idx] || 0) : 0;
 
-          const meta24 = chart.getDatasetMeta(chart.data.datasets.indexOf(ds2024)).data[idx];
-          const meta25 = chart.getDatasetMeta(chart.data.datasets.indexOf(ds2025)).data[idx];
+          const meta24 = ds2024 ? chart.getDatasetMeta(chart.data.datasets.indexOf(ds2024)).data[idx] : null;
+          const meta25 = ds2025 ? chart.getDatasetMeta(chart.data.datasets.indexOf(ds2025)).data[idx] : null;
           const meta26 = ds2026 ? chart.getDatasetMeta(chart.data.datasets.indexOf(ds2026)).data[idx] : null;
 
           // Variação 24 -> 25
@@ -276,11 +314,9 @@
             ctx.font = 'bold 11px sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'bottom';
-            
             const textWidth = ctx.measureText(texto).width;
             ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
             ctx.fillRect(posX - (textWidth / 2) - 2, posY - 12, textWidth + 4, 13);
-
             ctx.fillStyle = cor;
             ctx.fillText(texto, posX, posY);
             ctx.restore();
@@ -299,11 +335,9 @@
             ctx.font = 'bold 11px sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'bottom';
-
             const textWidth = ctx.measureText(texto).width;
             ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
             ctx.fillRect(posX - (textWidth / 2) - 2, posY - 12, textWidth + 4, 13);
-
             ctx.fillStyle = cor;
             ctx.fillText(texto, posX, posY);
             ctx.restore();
@@ -324,7 +358,6 @@
       return new Date(anoCompleto, mes - 1, dia, hora, min, seg);
     }
 
-    // Filtro rigoroso de DDD: descarta 11, null, nan, vazios ou indefinidos
     function dddValido(dddStr) {
       if (!dddStr) return false;
       const limpo = String(dddStr).replace(/\.0$/, "").trim().toLowerCase();
@@ -333,6 +366,30 @@
       }
       return true;
     }
+
+    // Controle de Abertura e Fechamento dos Dropdowns Customizados
+    function toggleDropdown(id) {
+      const dropdown = document.getElementById(id);
+      const estaAberto = !dropdown.classList.contains('hidden');
+      fecharTodosDropdowns();
+      if (!estaAberto) dropdown.classList.remove('hidden');
+    }
+
+    function fecharTodosDropdowns() {
+      ['dropdown-anos', 'dropdown-indicador', 'dropdown-ddd'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.add('hidden');
+      });
+    }
+
+    // Fecha ao clicar fora
+    window.addEventListener('click', (e) => {
+      if (!e.target.closest('#btn-dropdown-anos') && !e.target.closest('#dropdown-anos') &&
+          !e.target.closest('#btn-dropdown-indicador') && !e.target.closest('#dropdown-indicador') &&
+          !e.target.closest('#btn-dropdown-ddd') && !e.target.closest('#dropdown-ddd')) {
+        fecharTodosDropdowns();
+      }
+    });
 
     window.addEventListener("DOMContentLoaded", () => {
       Papa.parse(CSV_URL, {
@@ -388,69 +445,107 @@
         };
       }).filter(d => d.ano && d.mes > 0);
 
-      // Preenchimento de Indicadores
-      const indicadores = [...new Set(dadosBrutos.map(d => d.indicador).filter(Boolean))].sort();
-      const selIndicador = document.getElementById("filtro-indicador");
-      indicadores.forEach(ind => {
-        const opt = document.createElement("option");
-        opt.value = ind;
-        opt.textContent = ind;
-        selIndicador.appendChild(opt);
-      });
+      // Extrai listas de opções únicas
+      listaAnosGeral = [...new Set(dadosBrutos.map(d => d.ano).filter(Boolean))].sort();
+      listaIndicadoresGeral = [...new Set(dadosBrutos.map(d => d.indicador).filter(Boolean))].sort();
+      listaDDDsGeral = [...new Set(dadosBrutos.map(d => d.ddd).filter(Boolean))].sort((a,b) => Number(a) - Number(b));
 
-      // Preenchimento de DDDs válidos (Sem 11, Sem null)
-      const ddds = [...new Set(dadosBrutos.map(d => d.ddd).filter(Boolean))].sort((a,b) => Number(a) - Number(b));
-      const selDDD = document.getElementById("filtro-ddd");
-      ddds.forEach(d => {
-        const opt = document.createElement("option");
-        opt.value = d;
-        opt.textContent = "DDD " + d;
-        selDDD.appendChild(opt);
-      });
+      // Constrói os Checkboxes de Anos
+      popularCheckboxList('lista-checkbox-anos', 'chk-ano', listaAnosGeral, (val) => val);
+      
+      // Constrói os Checkboxes de Indicadores
+      popularCheckboxList('lista-checkbox-indicador', 'chk-indicador', listaIndicadoresGeral, (val) => val);
+
+      // Constrói os Checkboxes de DDDs
+      popularCheckboxList('lista-checkbox-ddd', 'chk-ddd', listaDDDsGeral, (val) => "DDD " + val);
 
       renderizarTudo();
     }
 
-    function filtrarPeriodo(ano) {
-      anoAtivo = ano;
-      document.querySelectorAll("#btn-anos button").forEach(btn => {
-        if (btn.innerText.includes(ano) || (ano === 'TODOS' && btn.innerText === 'Geral')) {
-          btn.className = "px-3 py-1.5 text-xs font-semibold rounded bg-indigo-600 text-white shadow-sm transition";
-        } else {
-          btn.className = "px-3 py-1.5 text-xs font-semibold rounded bg-slate-100 hover:bg-slate-200 text-slate-700 transition";
-        }
+    function popularCheckboxList(containerId, classe, lista, labelFormatFn) {
+      const cont = document.getElementById(containerId);
+      cont.innerHTML = "";
+      lista.forEach(item => {
+        const label = document.createElement("label");
+        label.className = "flex items-center gap-2 p-1 rounded hover:bg-slate-100 cursor-pointer select-none text-slate-700";
+        label.innerHTML = `
+          <input type="checkbox" class="${classe} rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4" value="${item}" checked onchange="renderizarTudo()">
+          <span>${labelFormatFn(item)}</span>
+        `;
+        cont.appendChild(label);
       });
+    }
+
+    function selecionarTodos(tipo, marcar) {
+      const inputs = document.querySelectorAll(`.chk-${tipo}`);
+      inputs.forEach(i => i.checked = marcar);
       renderizarTudo();
+    }
+
+    function obterSelecionados(tipo) {
+      const inputs = document.querySelectorAll(`.chk-${tipo}:checked`);
+      return Array.from(inputs).map(i => i.value);
+    }
+
+    function atualizarRotulosDropdowns(anosSel, indSel, dddsSel) {
+      // Rótulo Anos
+      const lblAnos = document.getElementById('label-dropdown-anos');
+      if (anosSel.length === 0) lblAnos.innerText = "Nenhum Ano Selecionado";
+      else if (anosSel.length === listaAnosGeral.length) lblAnos.innerText = "Todos os Anos";
+      else lblAnos.innerText = anosSel.join(", ");
+
+      // Rótulo Indicadores
+      const lblInd = document.getElementById('label-dropdown-indicador');
+      if (indSel.length === 0) lblInd.innerText = "Nenhum Selecionado";
+      else if (indSel.length === listaIndicadoresGeral.length) lblInd.innerText = "Todos os Indicadores";
+      else if (indSel.length === 1) lblInd.innerText = indSel[0];
+      else lblInd.innerText = `${indSel.length} Indicadores Selecionados`;
+
+      // Rótulo DDDs
+      const lblDDD = document.getElementById('label-dropdown-ddd');
+      if (dddsSel.length === 0) lblDDD.innerText = "Nenhum DDD Selecionado";
+      else if (dddsSel.length === listaDDDsGeral.length) lblDDD.innerText = "Todos os DDDs";
+      else if (dddsSel.length <= 3) lblDDD.innerText = dddsSel.map(d => "DDD " + d).join(", ");
+      else lblDDD.innerText = `${dddsSel.length} DDDs Selecionados`;
     }
 
     function getSLAColor(val) {
-      if (val < 80) return '#ef4444'; // Vermelho (< 80%)
-      if (val < 85) return '#eab308'; // Amarelo (80% a 84.999%)
-      return '#2563eb';               // Azul (>= 85%)
+      if (val < 80) return '#ef4444';
+      if (val < 85) return '#eab308';
+      return '#2563eb';
     }
 
     function renderizarTudo() {
-      const indSel = document.getElementById("filtro-indicador").value;
+      const anosSelecionados = obterSelecionados('ano');
+      const indicadoresSelecionados = obterSelecionados('indicador');
+      const dddsSelecionados = obterSelecionados('ddd');
       const redeSel = document.getElementById("filtro-rede").value;
-      const dddSel = document.getElementById("filtro-ddd").value;
 
+      atualizarRotulosDropdowns(anosSelecionados, indicadoresSelecionados, dddsSelecionados);
+
+      // Conjuntos para checagem rápida em O(1)
+      const setAnos = new Set(anosSelecionados);
+      const setIndicadores = new Set(indicadoresSelecionados);
+      const setDDDs = new Set(dddsSelecionados);
+
+      // Filtro geral aplicado à base
       const dadosFiltrados = dadosBrutos.filter(d => {
-        return (indSel === "TODOS" || d.indicador === indSel) &&
+        return setAnos.has(d.ano) &&
+               setIndicadores.has(d.indicador) &&
                (redeSel === "TODAS" || d.tipoRede === redeSel) &&
-               (dddSel === "TODOS" || d.ddd === dddSel);
+               setDDDs.has(d.ddd);
       });
 
-      const timelineRecorte = timelineCompleta.filter(t => anoAtivo === "TODOS" || t.ano === anoAtivo);
-      const periodosRecorte = new Set(timelineRecorte.map(t => t.periodo));
-      const dadosJanela = dadosFiltrados.filter(d => periodosRecorte.has(d.periodo));
+      // Recorta a timeline apenas para os anos ativos nos filtros
+      const timelineRecorte = timelineCompleta.filter(t => setAnos.has(t.ano));
 
       // 1. KPIs
-      const totalEntrantes = dadosJanela.length;
-      const totalDentroSLA = dadosJanela.filter(d => d.isDentroSLA).length;
-      const totalForaSLA = dadosJanela.filter(d => d.isForaSLA).length;
+      const totalEntrantes = dadosFiltrados.length;
+      const totalDentroSLA = dadosFiltrados.filter(d => d.isDentroSLA).length;
+      const totalForaSLA = dadosFiltrados.filter(d => d.isForaSLA).length;
       const pctSLA = totalEntrantes > 0 ? (totalDentroSLA / totalEntrantes * 100) : 0;
       
-      const tmaValidos = dadosJanela.filter(d => d.tmaHoras !== null).map(d => d.tmaHoras);
+      const tmaValidos = dadosFiltrados.filter(d => d.tmaHoras !== null).map(d => d.tmaHoras);
       const tmaMedio = tmaValidos.length > 0 ? (tmaValidos.reduce((a,b) => a+b, 0) / tmaValidos.length) : 0;
 
       document.getElementById("label-total").innerText = totalEntrantes.toLocaleString('pt-BR');
@@ -459,17 +554,13 @@
       
       const kpiSlaElem = document.getElementById("kpi-sla-pct");
       kpiSlaElem.innerText = pctSLA.toFixed(2) + "%";
-      if (pctSLA < 80) {
-        kpiSlaElem.className = "text-2xl font-bold mt-1 text-red-600";
-      } else if (pctSLA < 85) {
-        kpiSlaElem.className = "text-2xl font-bold mt-1 text-yellow-500";
-      } else {
-        kpiSlaElem.className = "text-2xl font-bold mt-1 text-blue-600";
-      }
+      if (pctSLA < 80) kpiSlaElem.className = "text-2xl font-bold mt-1 text-red-600";
+      else if (pctSLA < 85) kpiSlaElem.className = "text-2xl font-bold mt-1 text-yellow-500";
+      else kpiSlaElem.className = "text-2xl font-bold mt-1 text-blue-600";
 
       document.getElementById("kpi-tma").innerText = tmaMedio.toFixed(1) + "h";
 
-      // 2. Gráfico 1: Linha do Tempo Evolutiva (Fonte 13px na base interna das barras)
+      // 2. Gráfico 1: Linha do Tempo Evolutiva
       const labelsEvolucao = [];
       const volEvolucao = [];
       const slaEvolucao = [];
@@ -497,7 +588,7 @@
               type: 'bar',
               label: 'Entrantes',
               data: volEvolucao,
-              backgroundColor: 'rgba(30, 58, 138, 0.88)', // Azul escuro corporativo
+              backgroundColor: 'rgba(30, 58, 138, 0.88)',
               hoverBackgroundColor: '#1e3a8a',
               borderRadius: 3,
               yAxisID: 'y'
@@ -514,9 +605,7 @@
               pointHoverRadius: 5,
               tension: 0.25,
               yAxisID: 'y1',
-              segment: {
-                borderColor: ctx => getSLAColor(ctx.p1.raw)
-              }
+              segment: { borderColor: ctx => getSLAColor(ctx.p1.raw) }
             },
             {
               type: 'line',
@@ -564,15 +653,14 @@
         }
       });
 
-      // 3. Gráfico 2: Comparativo Homólogo (2025 com Azul Claro Neutro e Fonte 13px)
+      // 3. Gráfico 2: Comparativo Homólogo (Considera apenas os anos selecionados)
       const mapaCoresAnos = {
-        '2024': '#94a3b8', // Cinza Ardósia
-        '2025': '#5b92d6', // Azul Claro Neutro / Suave (menos chamativo)
-        '2026': '#1e3a8a'  // Azul Escuro
+        '2024': '#94a3b8',
+        '2025': '#5b92d6',
+        '2026': '#1e3a8a'
       };
 
-      const anosParaComp = [...new Set(dadosFiltrados.map(d => d.ano))].sort();
-      const datasetsYoY = anosParaComp.map(ano => {
+      const datasetsYoY = anosSelecionados.sort().map(ano => {
         const dadosMes = Array.from({length: 12}, (_, m) => {
           return dadosFiltrados.filter(d => d.ano === ano && d.mes === (m + 1)).length;
         });
@@ -591,9 +679,7 @@
           responsive: true,
           maintainAspectRatio: false,
           interaction: { mode: 'index', intersect: false },
-          layout: {
-            padding: { top: 32 }
-          },
+          layout: { padding: { top: 32 } },
           plugins: { legend: { position: 'top' } },
           scales: { y: { beginAtZero: true, title: { display: true, text: 'Volume de Chamados' } } }
         }
@@ -628,14 +714,14 @@
       });
 
       // 5. Gráfico 4: Desempenho de SLA por DDD - 1/3 da Linha
-      const dddsUnicos = [...new Set(dadosJanela.map(d => d.ddd).filter(Boolean))];
+      const dddsUnicos = [...new Set(dadosFiltrados.map(d => d.ddd).filter(Boolean))];
       const statsDDD = dddsUnicos.map(ddd => {
-        const dddRows = dadosJanela.filter(d => d.ddd === ddd);
+        const dddRows = dadosFiltrados.filter(d => d.ddd === ddd);
         const total = dddRows.length;
         const dentro = dddRows.filter(d => d.isDentroSLA).length;
         const sla = total > 0 ? (dentro / total * 100) : 0;
         return { ddd, total, sla };
-      }).filter(d => d.total >= 10);
+      }).filter(d => d.total >= 5);
 
       const topDDDsSla = [...statsDDD].sort((a,b) => b.sla - a.sla).slice(0, 10);
       const coresBarrasDDD = topDDDsSla.map(d => getSLAColor(d.sla));
@@ -660,10 +746,10 @@
         }
       });
 
-      // 6. Preenchimento das Tabelas Top 10 com Porcentagem (%)
-      popularTabela("tbl-top-mun-vol", agruparTop(dadosJanela, 'municipio', 10), totalEntrantes, '%');
-      popularTabela("tbl-top-mun-fora", agruparTop(dadosJanela.filter(d => d.isForaSLA), 'municipio', 10), totalForaSLA, '% Fora');
-      popularTabela("tbl-top-alarmes", agruparTop(dadosJanela, 'tipoAlarme', 10), totalEntrantes, '%');
+      // 6. Preenchimento das Tabelas Top 10 com %
+      popularTabela("tbl-top-mun-vol", agruparTop(dadosFiltrados, 'municipio', 10), totalEntrantes);
+      popularTabela("tbl-top-mun-fora", agruparTop(dadosFiltrados.filter(d => d.isForaSLA), 'municipio', 10), totalForaSLA);
+      popularTabela("tbl-top-alarmes", agruparTop(dadosFiltrados, 'tipoAlarme', 10), totalEntrantes);
     }
 
     function renderChart(id, config) {
@@ -684,7 +770,7 @@
         .slice(0, limite);
     }
 
-    function popularTabela(elementId, itens, totalReferencia, rotuloPct) {
+    function popularTabela(elementId, itens, totalReferencia) {
       const tbody = document.getElementById(elementId);
       tbody.innerHTML = "";
       if (itens.length === 0 || totalReferencia === 0) {
