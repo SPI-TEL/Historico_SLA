@@ -106,7 +106,7 @@
       </div>
     </section>
 
-    <!-- Gráfico 2: Comparativo Homólogo Anual por Mês com Variação Ampliada no Topo -->
+    <!-- Gráfico 2: Comparativo Homólogo Anual por Mês -->
     <section class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-3">
       <div class="flex justify-between items-center">
         <h2 class="text-base font-bold text-slate-800">Comparativo Homólogo Anual por Mês (Jan vs Jan)</h2>
@@ -138,15 +138,20 @@
 
     </section>
 
-    <!-- Seção Top 10 Detalhamentos -->
+    <!-- Seção Top 10 Detalhamentos com Coluna de Porcentagem (%) -->
     <section class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      
       <!-- Top 10 Municípios em Volume -->
       <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
         <h4 class="text-xs font-bold uppercase tracking-wider text-slate-600 mb-3 border-b pb-2">Top 10 Municípios (Volume)</h4>
         <div class="overflow-x-auto max-h-72">
           <table class="w-full text-xs text-left">
             <thead class="text-slate-400 uppercase bg-slate-50 sticky top-0">
-              <tr><th class="py-1.5 px-2">Município</th><th class="py-1.5 px-2 text-right">Qtd</th></tr>
+              <tr>
+                <th class="py-1.5 px-2">Município</th>
+                <th class="py-1.5 px-2 text-right">Qtd</th>
+                <th class="py-1.5 px-2 text-right">%</th>
+              </tr>
             </thead>
             <tbody id="tbl-top-mun-vol" class="divide-y divide-slate-100"></tbody>
           </table>
@@ -159,7 +164,11 @@
         <div class="overflow-x-auto max-h-72">
           <table class="w-full text-xs text-left">
             <thead class="text-slate-400 uppercase bg-slate-50 sticky top-0">
-              <tr><th class="py-1.5 px-2">Município</th><th class="py-1.5 px-2 text-right">Fora</th></tr>
+              <tr>
+                <th class="py-1.5 px-2">Município</th>
+                <th class="py-1.5 px-2 text-right">Fora</th>
+                <th class="py-1.5 px-2 text-right">% Fora</th>
+              </tr>
             </thead>
             <tbody id="tbl-top-mun-fora" class="divide-y divide-slate-100"></tbody>
           </table>
@@ -172,12 +181,17 @@
         <div class="overflow-x-auto max-h-72">
           <table class="w-full text-xs text-left">
             <thead class="text-slate-400 uppercase bg-slate-50 sticky top-0">
-              <tr><th class="py-1.5 px-2">Alarme</th><th class="py-1.5 px-2 text-right">Qtd</th></tr>
+              <tr>
+                <th class="py-1.5 px-2">Alarme</th>
+                <th class="py-1.5 px-2 text-right">Qtd</th>
+                <th class="py-1.5 px-2 text-right">%</th>
+              </tr>
             </thead>
             <tbody id="tbl-top-alarmes" class="divide-y divide-slate-100"></tbody>
           </table>
         </div>
       </div>
+
     </section>
 
   </div>
@@ -196,7 +210,7 @@
     let chartsInstancias = {};
     let anoAtivo = "TODOS";
 
-    // Plugin para desenhar rótulos verticais na base interna das barras
+    // Plugin para desenhar rótulos verticais na base interna das barras com fonte ampliada (13px)
     const pluginRotulosNaBase = {
       id: 'rotulosNaBase',
       afterDatasetsDraw(chart) {
@@ -211,14 +225,15 @@
             if (val === null || val === undefined || val === 0) return;
 
             const { x, base, height } = element;
-            if (Math.abs(height) < 22) return;
+            // Só desenha se a coluna tiver altura suficiente para o texto
+            if (Math.abs(height) < 26) return;
 
             ctx.save();
-            ctx.translate(x, base - 8);
-            ctx.rotate(-Math.PI / 2);
+            ctx.translate(x, base - 10);
+            ctx.rotate(-Math.PI / 2); // Rotação vertical de -90 graus
             ctx.textAlign = 'left';
             ctx.textBaseline = 'middle';
-            ctx.font = 'bold 10px sans-serif';
+            ctx.font = 'bold 13px sans-serif'; // Fonte ampliada para máxima legibilidade
             ctx.fillStyle = '#ffffff';
             ctx.fillText(Number(val).toLocaleString('pt-BR'), 0, 0);
             ctx.restore();
@@ -227,7 +242,7 @@
       }
     };
 
-    // Plugin ampliado para calcular e desenhar as variações percentuais anuais no topo de cada mês
+    // Plugin para desenhar as variações percentuais homólogas no topo de cada mês
     const pluginVariacaoNoTopoYoY = {
       id: 'variacaoNoTopoYoY',
       afterDatasetsDraw(chart) {
@@ -248,7 +263,7 @@
           const meta25 = chart.getDatasetMeta(chart.data.datasets.indexOf(ds2025)).data[idx];
           const meta26 = ds2026 ? chart.getDatasetMeta(chart.data.datasets.indexOf(ds2026)).data[idx] : null;
 
-          // Variação 24 -> 25 (posicionada sobre o vão entre as barras 2024 e 2025)
+          // Variação 24 -> 25
           if (v24 > 0 && v25 > 0 && meta24 && meta25) {
             const pct = ((v25 - v24) / v24) * 100;
             const sinal = pct >= 0 ? '+' : '';
@@ -258,11 +273,10 @@
             const posY = Math.min(meta24.y, meta25.y) - 10;
 
             ctx.save();
-            ctx.font = 'bold 11px sans-serif'; // Fonte ampliada para melhor visualização
+            ctx.font = 'bold 11px sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'bottom';
             
-            // Fundo de destaque para não misturar com as linhas de grade
             const textWidth = ctx.measureText(texto).width;
             ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
             ctx.fillRect(posX - (textWidth / 2) - 2, posY - 12, textWidth + 4, 13);
@@ -272,7 +286,7 @@
             ctx.restore();
           }
 
-          // Variação 25 -> 26 (posicionada sobre o vão entre as barras 2025 e 2026)
+          // Variação 25 -> 26
           if (v25 > 0 && v26 > 0 && meta25 && meta26) {
             const pct = ((v26 - v25) / v25) * 100;
             const sinal = pct >= 0 ? '+' : '';
@@ -282,11 +296,10 @@
             const posY = Math.min(meta25.y, meta26.y) - 10;
 
             ctx.save();
-            ctx.font = 'bold 11px sans-serif'; // Fonte ampliada para melhor visualização
+            ctx.font = 'bold 11px sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'bottom';
 
-            // Fundo de destaque
             const textWidth = ctx.measureText(texto).width;
             ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
             ctx.fillRect(posX - (textWidth / 2) - 2, posY - 12, textWidth + 4, 13);
@@ -434,6 +447,7 @@
       // 1. KPIs
       const totalEntrantes = dadosJanela.length;
       const totalDentroSLA = dadosJanela.filter(d => d.isDentroSLA).length;
+      const totalForaSLA = dadosJanela.filter(d => d.isForaSLA).length;
       const pctSLA = totalEntrantes > 0 ? (totalDentroSLA / totalEntrantes * 100) : 0;
       
       const tmaValidos = dadosJanela.filter(d => d.tmaHoras !== null).map(d => d.tmaHoras);
@@ -455,7 +469,7 @@
 
       document.getElementById("kpi-tma").innerText = tmaMedio.toFixed(1) + "h";
 
-      // 2. Gráfico 1: Linha do Tempo Evolutiva
+      // 2. Gráfico 1: Linha do Tempo Evolutiva (Fonte 13px na base interna das barras)
       const labelsEvolucao = [];
       const volEvolucao = [];
       const slaEvolucao = [];
@@ -483,7 +497,7 @@
               type: 'bar',
               label: 'Entrantes',
               data: volEvolucao,
-              backgroundColor: 'rgba(30, 58, 138, 0.85)',
+              backgroundColor: 'rgba(30, 58, 138, 0.88)', // Azul escuro corporativo
               hoverBackgroundColor: '#1e3a8a',
               borderRadius: 3,
               yAxisID: 'y'
@@ -550,11 +564,11 @@
         }
       });
 
-      // 3. Gráfico 2: Comparativo Homólogo (com Variação Ampliada no Topo)
+      // 3. Gráfico 2: Comparativo Homólogo (2025 com Azul Claro Neutro e Fonte 13px)
       const mapaCoresAnos = {
-        '2024': '#94a3b8',
-        '2025': '#38bdf8',
-        '2026': '#1e3a8a'
+        '2024': '#94a3b8', // Cinza Ardósia
+        '2025': '#5b92d6', // Azul Claro Neutro / Suave (menos chamativo)
+        '2026': '#1e3a8a'  // Azul Escuro
       };
 
       const anosParaComp = [...new Set(dadosFiltrados.map(d => d.ano))].sort();
@@ -578,14 +592,14 @@
           maintainAspectRatio: false,
           interaction: { mode: 'index', intersect: false },
           layout: {
-            padding: { top: 32 } // Espaço superior generoso para caber as porcentagens maiores
+            padding: { top: 32 }
           },
           plugins: { legend: { position: 'top' } },
           scales: { y: { beginAtZero: true, title: { display: true, text: 'Volume de Chamados' } } }
         }
       });
 
-      // 4. Gráfico 3: Variação Mês a Mês (MoM %) - Ocupa 2/3 da Linha
+      // 4. Gráfico 3: Variação Mês a Mês (MoM %) - 2/3 da Linha
       const momLabels = [];
       const momValores = [];
       for (let i = 1; i < volEvolucao.length; i++) {
@@ -613,7 +627,7 @@
         }
       });
 
-      // 5. Gráfico 4: Desempenho de SLA por DDD (Sem DDD 11, Sem null) - Ocupa 1/3 da Linha
+      // 5. Gráfico 4: Desempenho de SLA por DDD - 1/3 da Linha
       const dddsUnicos = [...new Set(dadosJanela.map(d => d.ddd).filter(Boolean))];
       const statsDDD = dddsUnicos.map(ddd => {
         const dddRows = dadosJanela.filter(d => d.ddd === ddd);
@@ -621,7 +635,7 @@
         const dentro = dddRows.filter(d => d.isDentroSLA).length;
         const sla = total > 0 ? (dentro / total * 100) : 0;
         return { ddd, total, sla };
-      }).filter(d => d.total >= 10); // Elimina ruídos com menos de 10 chamados no período
+      }).filter(d => d.total >= 10);
 
       const topDDDsSla = [...statsDDD].sort((a,b) => b.sla - a.sla).slice(0, 10);
       const coresBarrasDDD = topDDDsSla.map(d => getSLAColor(d.sla));
@@ -646,10 +660,10 @@
         }
       });
 
-      // 6. Preenchimento das Tabelas Top 10
-      popularTabela("tbl-top-mun-vol", agruparTop(dadosJanela, 'municipio', 10));
-      popularTabela("tbl-top-mun-fora", agruparTop(dadosJanela.filter(d => d.isForaSLA), 'municipio', 10));
-      popularTabela("tbl-top-alarmes", agruparTop(dadosJanela, 'tipoAlarme', 10));
+      // 6. Preenchimento das Tabelas Top 10 com Porcentagem (%)
+      popularTabela("tbl-top-mun-vol", agruparTop(dadosJanela, 'municipio', 10), totalEntrantes, '%');
+      popularTabela("tbl-top-mun-fora", agruparTop(dadosJanela.filter(d => d.isForaSLA), 'municipio', 10), totalForaSLA, '% Fora');
+      popularTabela("tbl-top-alarmes", agruparTop(dadosJanela, 'tipoAlarme', 10), totalEntrantes, '%');
     }
 
     function renderChart(id, config) {
@@ -670,18 +684,20 @@
         .slice(0, limite);
     }
 
-    function popularTabela(elementId, itens) {
+    function popularTabela(elementId, itens, totalReferencia, rotuloPct) {
       const tbody = document.getElementById(elementId);
       tbody.innerHTML = "";
-      if (itens.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="2" class="p-2 text-center text-slate-400">Sem ocorrências</td></tr>`;
+      if (itens.length === 0 || totalReferencia === 0) {
+        tbody.innerHTML = `<tr><td colspan="3" class="p-2 text-center text-slate-400">Sem ocorrências</td></tr>`;
         return;
       }
       itens.forEach(it => {
+        const pct = ((it.qtd / totalReferencia) * 100).toFixed(1) + "%";
         const tr = document.createElement("tr");
         tr.innerHTML = `
-          <td class="py-1.5 px-2 font-medium text-slate-700 truncate max-w-[160px]" title="${it.nome}">${it.nome}</td>
-          <td class="py-1.5 px-2 text-right font-bold text-slate-600">${it.qtd.toLocaleString('pt-BR')}</td>
+          <td class="py-1.5 px-2 font-medium text-slate-700 truncate max-w-[130px]" title="${it.nome}">${it.nome}</td>
+          <td class="py-1.5 px-2 text-right font-bold text-slate-700">${it.qtd.toLocaleString('pt-BR')}</td>
+          <td class="py-1.5 px-2 text-right font-semibold text-slate-500 text-[11px]">${pct}</td>
         `;
         tbody.appendChild(tr);
       });
