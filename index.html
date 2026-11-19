@@ -741,7 +741,7 @@
                   if (ctx.dataset.label.includes('SLA') || ctx.dataset.label.includes('Meta')) {
                     return `${ctx.dataset.label}: ${ctx.raw}%`;
                   }
-                  return `${ctx.dataset.label}: ${ctx.raw.toLocaleString('pt-BR')}`;
+                  return `${ctx.dataset.label}: ${Number(ctx.raw).toLocaleString('pt-BR')}`;
                 }
               }
             }
@@ -827,7 +827,9 @@
             legend: { display: false },
             tooltip: {
               callbacks: {
-                label: ctx => `Volume: ${ctx.raw.toLocaleString('pt-BR')} chamados`
+                label: function(ctx) {
+                  return `Volume: ${Number(ctx.raw).toLocaleString('pt-BR')} chamados`;
+                }
               }
             }
           },
@@ -865,7 +867,9 @@
             legend: { display: false },
             tooltip: {
               callbacks: {
-                label: ctx => `% SLA Dentro: ${Number(ctx.raw).toFixed(2).replace('.', ',')}%`
+                label: function(ctx) {
+                  return `% SLA Dentro: ${Number(ctx.raw).toFixed(2).replace('.', ',')}%`;
+                }
               }
             }
           },
