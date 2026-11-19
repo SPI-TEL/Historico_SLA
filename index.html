@@ -28,8 +28,15 @@
         <h1 class="text-xl md:text-2xl font-black tracking-tight">Portal Analítico de Volumetria & Desempenho</h1>
         <p id="subtitulo-periodo" class="text-xs text-indigo-200 mt-1">Série temporal contínua | SLA = Chamados Dentro do Prazo / Total</p>
       </div>
-      <div id="status-carga" class="text-xs font-semibold px-3 py-1.5 rounded-full bg-indigo-900 text-indigo-200 flex items-center gap-2">
-        <span class="animate-spin text-sm">↻</span> Carregando base online...
+      
+      <!-- Lado direito do cabeçalho: Status da Carga + Data/Hora da Última Modificação -->
+      <div class="flex flex-col items-start md:items-end gap-1.5">
+        <div id="status-carga" class="text-xs font-semibold px-3 py-1.5 rounded-full bg-indigo-900 text-indigo-200 flex items-center gap-2">
+          <span class="animate-spin text-sm">↻</span> Carregando base online...
+        </div>
+        <div id="ultima-atualizacao" class="text-xs font-semibold text-emerald-400 tracking-wide">
+          Base atualizada: --/--/---- --:--:--
+        </div>
       </div>
     </header>
 
@@ -261,7 +268,11 @@
   </div>
 
   <script>
-    const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSYk7Ffx3SciYvJ88AQraUF7GWNRW8Z-VBrxleVdNpVaXtM7lHqW-wg1CTRr9bO7g/pub?gid=194075109&single=true&output=csv";
+    // URL da base principal (Folha1)
+    const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQSVCOuJqNWVYrCq6jRJc_wxst1sJO_fmV6tIPYofgAQdegaJ70SbDJsyrpfnOdfua-AV5xSq8FHlkG/pub?gid=194075109&single=true&output=csv";
+    
+    // URL CSV da aba "Alterações"
+    const CSV_ALTERACOES_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQSVCOuJqNWVYrCq6jRJc_wxst1sJO_fmV6tIPYofgAQdegaJ70SbDJsyrpfnOdfua-AV5xSq8FHlkG/pub?gid=1010339059&single=true&output=csv";
 
     const mesesNomes = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
     const listaMesesGeral = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
@@ -440,7 +451,28 @@
       }
     });
 
+    function carregarDataUltimaAlteracao() {
+      if (!CSV_ALTERACOES_URL) return;
+      const urlAltSemCache = CSV_ALTERACOES_URL + "&t=" + new Date().getTime();
+      Papa.parse(urlAltSemCache, {
+        download: true,
+        header: true,
+        skipEmptyLines: true,
+        complete: (res) => {
+          if (res.data && res.data.length > 0) {
+            const primeiraLinha = res.data[0];
+            const dataRegistro = primeiraLinha["Última Alteração"] || Object.values(primeiraLinha)[0];
+            if (dataRegistro) {
+              document.getElementById("ultima-atualizacao").innerText = "Base atualizada: " + dataRegistro.trim();
+            }
+          }
+        }
+      });
+    }
+
     window.addEventListener("DOMContentLoaded", () => {
+      carregarDataUltimaAlteracao();
+
       const urlSemCache = CSV_URL + "&t=" + new Date().getTime();
       Papa.parse(urlSemCache, {
         download: true,
