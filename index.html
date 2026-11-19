@@ -26,14 +26,14 @@
     <header class="bg-indigo-950 text-white p-6 rounded-2xl shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
       <div>
         <h1 class="text-xl md:text-2xl font-black tracking-tight">Portal Analítico de Volumetria & Desempenho</h1>
-        <p class="text-xs text-indigo-200 mt-1">Série temporal contínua: Jan/2024 a Out/2026 | SLA = Chamados Dentro do Prazo / Total</p>
+        <p id="subtitulo-periodo" class="text-xs text-indigo-200 mt-1">Série temporal contínua | SLA = Chamados Dentro do Prazo / Total</p>
       </div>
       <div id="status-carga" class="text-xs font-semibold px-3 py-1.5 rounded-full bg-indigo-900 text-indigo-200 flex items-center gap-2">
         <span class="animate-spin text-sm">↻</span> Carregando base online...
       </div>
     </header>
 
-    <!-- Barra de Filtros (7 colunas no desktop) -->
+    <!-- Barra de Filtros -->
     <section class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-3 items-end relative z-30">
       
       <!-- Filtro: Anos -->
@@ -53,7 +53,7 @@
         </div>
       </div>
 
-      <!-- NOVO Filtro: Meses -->
+      <!-- Filtro: Meses -->
       <div class="relative">
         <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Mês</label>
         <button id="btn-dropdown-meses" type="button" onclick="toggleDropdown('dropdown-meses')" class="w-full text-xs border rounded-lg p-2.5 bg-slate-50 border-slate-300 text-left flex justify-between items-center focus:ring-2 focus:ring-indigo-500 shadow-sm">
@@ -114,7 +114,7 @@
         </div>
       </div>
 
-      <!-- NOVO Filtro: Dentro / Fora do Prazo -->
+      <!-- Filtro: Dentro / Fora do Prazo -->
       <div>
         <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Status SLA</label>
         <select id="filtro-status-sla" onchange="renderizarTudo()" class="w-full text-xs border rounded-lg p-2.5 bg-slate-50 border-slate-300 text-slate-700 font-medium focus:ring-2 focus:ring-indigo-500 shadow-sm">
@@ -265,11 +265,7 @@
 
     const mesesNomes = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
     const listaMesesGeral = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
-    const timelineCompleta = [];
-
-    for (let m = 1; m <= 12; m++) timelineCompleta.push({ rotulo: `${mesesNomes[m-1]}/24`, ano: "2024", mes: m, periodo: `2024-${String(m).padStart(2,'0')}` });
-    for (let m = 1; m <= 12; m++) timelineCompleta.push({ rotulo: `${mesesNomes[m-1]}/25`, ano: "2025", mes: m, periodo: `2025-${String(m).padStart(2,'0')}` });
-    for (let m = 1; m <= 10; m++) timelineCompleta.push({ rotulo: `${mesesNomes[m-1]}/26`, ano: "2026", mes: m, periodo: `2026-${String(m).padStart(2,'0')}` });
+    let timelineCompleta = [];
 
     let dadosBrutos = [];
     let chartsInstancias = {};
@@ -352,7 +348,7 @@
 
           const meta24 = ds2024 ? chart.getDatasetMeta(chart.data.datasets.indexOf(ds2024)).data[idx] : null;
           const meta25 = ds2025 ? chart.getDatasetMeta(chart.data.datasets.indexOf(ds2025)).data[idx] : null;
-          const meta26 = ds2026 ? chart.getDatasetMeta(chart.data.datasets.indexOf(ds2026)).data[idx] : null;
+          const meta26 = ds26 ? chart.getDatasetMeta(chart.data.datasets.indexOf(ds26)).data[idx] : null;
 
           // Variação 24 -> 25
           if (v24 > 0 && v25 > 0 && meta24 && meta25) {
@@ -445,7 +441,8 @@
     });
 
     window.addEventListener("DOMContentLoaded", () => {
-      Papa.parse(CSV_URL, {
+      const urlSemCache = CSV_URL + "&t=" + new Date().getTime();
+      Papa.parse(urlSemCache, {
         download: true,
         header: true,
         skipEmptyLines: true,
@@ -497,6 +494,25 @@
           tmaHoras
         };
       }).filter(d => d.ano && d.mes > 0);
+
+      // Gera automaticamente a linha do tempo com base nos anos e meses existentes na planilha
+      const periodosUnicos = [...new Set(dadosBrutos.map(d => d.periodo))].sort();
+      timelineCompleta = periodosUnicos.map(p => {
+        const [anoStr, mesStr] = p.split("-");
+        const mesNum = parseInt(mesStr, 10);
+        return {
+          rotulo: `${mesesNomes[mesNum - 1]}/${anoStr.slice(-2)}`,
+          ano: anoStr,
+          mes: mesNum,
+          periodo: p
+        };
+      });
+
+      if (timelineCompleta.length > 0) {
+        const inicio = timelineCompleta[0].rotulo;
+        const fim = timelineCompleta[timelineCompleta.length - 1].rotulo;
+        document.getElementById("subtitulo-periodo").innerText = `Série temporal contínua: ${inicio} a ${fim} | SLA = Chamados Dentro do Prazo / Total`;
+      }
 
       listaAnosGeral = [...new Set(dadosBrutos.map(d => d.ano).filter(Boolean))].sort();
       listaIndicadoresGeral = [...new Set(dadosBrutos.map(d => d.indicador).filter(Boolean))].sort();
@@ -757,7 +773,7 @@
         return { ddd, total, sla };
       });
 
-      // 4. Gráfico 3: Volume por DDD (Substituiu MoM) - 2/3 da Linha
+      // 4. Gráfico 3: Volume por DDD - 2/3 da Linha
       const dddsOrdenadosVolume = [...statsDDD].sort((a, b) => b.total - a.total);
 
       renderChart("chartDDDVolume", {
@@ -806,7 +822,7 @@
             data: topDDDsSla.map(d => d.sla), 
             backgroundColor: coresBarrasDDD, 
             borderRadius: 4,
-            displayDataLabels: false // Desativa o rótulo vertical interno para usar o rótulo no topo
+            displayDataLabels: false
           }]
         },
         options: {
