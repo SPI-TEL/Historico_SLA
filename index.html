@@ -194,7 +194,7 @@
       <!-- 2/3 da Linha: Volume por DDD -->
       <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 lg:col-span-2">
         <h3 class="text-sm font-bold text-slate-700 mb-3">Volume de Entrantes por DDD</h3>
-        <div class="h-72">
+        <div class="h-72 relative">
           <canvas id="chartDDDVolume"></canvas>
         </div>
       </div>
@@ -202,7 +202,7 @@
       <!-- 1/3 da Linha: Top DDDs por Desempenho de SLA -->
       <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 lg:col-span-1">
         <h3 class="text-sm font-bold text-slate-700 mb-3">Top DDDs por Desempenho de SLA</h3>
-        <div class="h-72">
+        <div class="h-72 relative">
           <canvas id="chartDDDSla"></canvas>
         </div>
       </div>
@@ -293,7 +293,7 @@
         chart.data.datasets.forEach((dataset, datasetIndex) => {
           if (dataset.type === 'line' || dataset.displayDataLabels === false) return;
           const meta = chart.getDatasetMeta(datasetIndex);
-          if (meta.hidden) return;
+          if (!meta || meta.hidden) return;
 
           meta.data.forEach((element, index) => {
             const val = dataset.data[index];
@@ -320,11 +320,11 @@
     const pluginRotulosDDDSla = {
       id: 'rotulosDDDSla',
       afterDatasetsDraw(chart) {
-        if (chart.canvas.id !== 'chartDDDSla') return;
+        if (!chart.canvas || chart.canvas.id !== 'chartDDDSla') return;
         const { ctx } = chart;
         const dataset = chart.data.datasets[0];
         const meta = chart.getDatasetMeta(0);
-        if (!meta || meta.hidden) return;
+        if (!dataset || !meta || meta.hidden) return;
 
         meta.data.forEach((element, index) => {
           const val = dataset.data[index];
@@ -346,7 +346,7 @@
     const pluginVariacaoNoTopoYoY = {
       id: 'variacaoNoTopoYoY',
       afterDatasetsDraw(chart) {
-        if (chart.canvas.id !== 'chartYoY') return;
+        if (!chart.canvas || chart.canvas.id !== 'chartYoY') return;
         const { ctx } = chart;
         const ds2024 = chart.data.datasets.find(d => d.label === '2024');
         const ds2025 = chart.data.datasets.find(d => d.label === '2025');
@@ -714,7 +714,7 @@
               pointHoverRadius: 5,
               tension: 0.25,
               yAxisID: 'y1',
-              segment: { borderColor: ctx => getSLAColor(ctx.p1.raw) }
+              segment: { borderColor: c => getSLAColor(c.p1.raw) }
             },
             {
               type: 'line',
@@ -737,11 +737,11 @@
             legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } },
             tooltip: {
               callbacks: {
-                label: function(ctx) {
-                  if (ctx.dataset.label.includes('SLA') || ctx.dataset.label.includes('Meta')) {
-                    return `${ctx.dataset.label}: ${ctx.raw}%`;
+                label: function(item) {
+                  if (item.dataset.label.includes('SLA') || item.dataset.label.includes('Meta')) {
+                    return item.dataset.label + ': ' + item.raw + '%';
                   }
-                  return `${ctx.dataset.label}: ${Number(ctx.raw).toLocaleString('pt-BR')}`;
+                  return item.dataset.label + ': ' + Number(item.raw).toLocaleString('pt-BR');
                 }
               }
             }
@@ -801,7 +801,7 @@
         const dddRows = dadosFiltrados.filter(d => d.ddd === ddd);
         const total = dddRows.length;
         const dentro = dddRows.filter(d => d.isDentroSLA).length;
-        const sla = total > 0 ? (dentro / total * 100) : 0;
+        const sla = total > 0 ? Number(((dentro / total) * 100).toFixed(2)) : 0;
         return { ddd, total, sla };
       });
 
@@ -827,8 +827,8 @@
             legend: { display: false },
             tooltip: {
               callbacks: {
-                label: function(ctx) {
-                  return `Volume: ${Number(ctx.raw).toLocaleString('pt-BR')} chamados`;
+                label: function(item) {
+                  return 'Volume: ' + Number(item.raw).toLocaleString('pt-BR') + ' chamados';
                 }
               }
             }
@@ -867,8 +867,8 @@
             legend: { display: false },
             tooltip: {
               callbacks: {
-                label: function(ctx) {
-                  return `% SLA Dentro: ${Number(ctx.raw).toFixed(2).replace('.', ',')}%`;
+                label: function(item) {
+                  return '% SLA Dentro: ' + Number(item.raw).toFixed(2).replace('.', ',') + '%';
                 }
               }
             }
@@ -887,9 +887,17 @@
     }
 
     function renderChart(id, config) {
-      if (chartsInstancias[id]) chartsInstancias[id].destroy();
-      const ctx = document.getElementById(id).getContext('2d');
-      chartsInstancias[id] = new Chart(ctx, config);
+      try {
+        const canvas = document.getElementById(id);
+        if (!canvas) return;
+        if (chartsInstancias[id]) {
+          chartsInstancias[id].destroy();
+        }
+        const context = canvas.getContext('2d');
+        chartsInstancias[id] = new Chart(context, config);
+      } catch (erro) {
+        console.error("Erro ao renderizar gráfico " + id + ":", erro);
+      }
     }
 
     function agruparTop(lista, chave, limite) {
@@ -906,6 +914,7 @@
 
     function popularTabela(elementId, itens, totalReferencia) {
       const tbody = document.getElementById(elementId);
+      if (!tbody) return;
       tbody.innerHTML = "";
       if (itens.length === 0 || totalReferencia === 0) {
         tbody.innerHTML = `<tr><td colspan="3" class="p-2 text-center text-slate-400">Sem ocorrências</td></tr>`;
