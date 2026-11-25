@@ -209,6 +209,55 @@
 
     </section>
 
+    <!-- NOVA SEÇÃO: Fechamentos Mensais [1/3] + Evolução SLA Diária do Mês Atual [2/3] -->
+    <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      
+      <!-- 1/3 da Linha: Fechamentos mensais (Últimos 5 meses) -->
+      <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 lg:col-span-1 flex flex-col justify-between">
+        <div>
+          <div class="flex items-center gap-2 mb-2">
+            <span class="w-6 h-6 rounded-md bg-blue-600 text-white flex items-center justify-center text-xs font-bold">↗</span>
+            <h3 class="text-sm font-bold text-slate-800">Fechamentos mensais</h3>
+          </div>
+          <div class="flex flex-wrap items-center gap-3 text-[11px] font-medium text-slate-600 mb-2">
+            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-blue-600 inline-block"></span> Fechamentos</span>
+            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-cyan-400 inline-block"></span> SLA</span>
+            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span> Meta 85%</span>
+            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block"></span> Alerta 80%</span>
+          </div>
+        </div>
+        <div class="h-72 relative">
+          <canvas id="chartFechamentosMensais"></canvas>
+        </div>
+      </div>
+
+      <!-- 2/3 da Linha: Evolução SLA Diária (Mês Atual) -->
+      <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 lg:col-span-2 flex flex-col justify-between">
+        <div>
+          <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 mb-2">
+            <div class="flex items-center gap-2">
+              <span class="w-6 h-6 rounded-md bg-blue-600 text-white flex items-center justify-center text-xs font-bold">↗</span>
+              <h3 id="titulo-evolucao-diaria" class="text-sm font-bold text-slate-800">Evolução SLA (Mês Atual)</h3>
+            </div>
+            <div class="flex flex-wrap items-center gap-3 text-[11px] font-medium text-slate-600">
+              <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-blue-600 inline-block"></span> Eventos</span>
+              <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-cyan-400 inline-block"></span> SLA</span>
+              <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span> Meta 85%</span>
+              <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block"></span> Alerta 80%</span>
+            </div>
+          </div>
+        </div>
+        <div class="h-72 relative">
+          <canvas id="chartEvolucaoDiaria"></canvas>
+        </div>
+        <div class="mt-2 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+          <p class="text-[11px] text-slate-500">Clique em um dia para ver os eventos dentro e fora do indicador.</p>
+          <div id="detalhe-dia-selecionado" class="hidden text-xs font-semibold px-3 py-1 rounded-lg bg-slate-100 text-slate-700 border border-slate-200"></div>
+        </div>
+      </div>
+
+    </section>
+
     <!-- Seção Top 10 Detalhamentos com Coluna de Porcentagem (%) -->
     <section class="grid grid-cols-1 md:grid-cols-3 gap-6">
       
@@ -275,6 +324,7 @@
     const CSV_ALTERACOES_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQSVCOuJqNWVYrCq6jRJc_wxst1sJO_fmV6tIPYofgAQdegaJ70SbDJsyrpfnOdfua-AV5xSq8FHlkG/pub?gid=1010339059&single=true&output=csv";
 
     const mesesNomes = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+    const mesesNomesMin = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
     const listaMesesGeral = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
     let timelineCompleta = [];
 
@@ -289,6 +339,9 @@
     const pluginRotulosNaBase = {
       id: 'rotulosNaBase',
       afterDatasetsDraw(chart) {
+        if (!chart.canvas) return;
+        if (chart.canvas.id === 'chartFechamentosMensais' || chart.canvas.id === 'chartEvolucaoDiaria') return;
+
         const { ctx } = chart;
         chart.data.datasets.forEach((dataset, datasetIndex) => {
           if (dataset.type === 'line' || dataset.displayDataLabels === false) return;
@@ -339,6 +392,59 @@
           ctx.fillText(texto, element.x, element.y - 4);
           ctx.restore();
         });
+      }
+    };
+
+    // Plugin para rótulos dos novos gráficos: Fechamentos Mensais e Evolução SLA Diária (estilo da imagem)
+    const pluginRotulosComboMêsAtual = {
+      id: 'rotulosComboMesAtual',
+      afterDatasetsDraw(chart) {
+        if (!chart.canvas) return;
+        const isFech = chart.canvas.id === 'chartFechamentosMensais';
+        const isDiario = chart.canvas.id === 'chartEvolucaoDiaria';
+        if (!isFech && !isDiario) return;
+
+        const { ctx } = chart;
+        const dsBar = chart.data.datasets[0];
+        const dsLine = chart.data.datasets[1];
+        const metaBar = chart.getDatasetMeta(0);
+        const metaLine = chart.getDatasetMeta(1);
+
+        // 1. Rótulo numérico acima das barras (azuis)
+        if (dsBar && metaBar && !metaBar.hidden) {
+          metaBar.data.forEach((el, idx) => {
+            const val = dsBar.data[idx];
+            if (!val || val === 0) return;
+            ctx.save();
+            ctx.font = isDiario ? 'bold 9.5px sans-serif' : 'bold 11px sans-serif';
+            ctx.fillStyle = '#2563eb';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+            ctx.fillText(String(val), el.x, el.y - 3);
+            ctx.restore();
+          });
+        }
+
+        // 2. Rótulo percentual acima dos pontos da linha de SLA
+        if (dsLine && metaLine && !metaLine.hidden) {
+          metaLine.data.forEach((el, idx) => {
+            const val = dsLine.data[idx];
+            if (val === null || val === undefined) return;
+            const texto = Number(val).toFixed(1).replace('.', ',') + '%';
+            let corTexto = '#0891b2';
+            if (val < 80) corTexto = '#ef4444';
+            else if (val < 85) corTexto = '#d97706';
+            else corTexto = '#10b981';
+
+            ctx.save();
+            ctx.font = isDiario ? 'bold 9px sans-serif' : 'bold 10.5px sans-serif';
+            ctx.fillStyle = corTexto;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+            ctx.fillText(texto, el.x, el.y - 6);
+            ctx.restore();
+          });
+        }
       }
     };
 
@@ -406,7 +512,7 @@
       }
     };
 
-    Chart.register(pluginRotulosNaBase, pluginRotulosDDDSla, pluginVariacaoNoTopoYoY);
+    Chart.register(pluginRotulosNaBase, pluginRotulosDDDSla, pluginRotulosComboMêsAtual, pluginVariacaoNoTopoYoY);
 
     function parseDataHora(str) {
       if (!str) return null;
@@ -416,6 +522,18 @@
       const [hora, min, seg] = partes[1].split(":").map(Number);
       const anoCompleto = ano < 100 ? 2000 + ano : ano;
       return new Date(anoCompleto, mes - 1, dia, hora, min, seg);
+    }
+
+    function extrairDiaDoMes(str) {
+      if (!str) return null;
+      const parteData = str.trim().split(" ")[0];
+      if (!parteData) return null;
+      const partes = parteData.split("/");
+      if (partes.length >= 1) {
+        const dia = parseInt(partes[0], 10);
+        return isNaN(dia) ? null : dia;
+      }
+      return null;
     }
 
     function dddValido(dddStr) {
@@ -505,6 +623,8 @@
 
         const dtCriacao = parseDataHora(r.DATA_CRIACAO);
         const dtEncerramento = parseDataHora(r.DATA_ENCERRAMENTO);
+        const dia = extrairDiaDoMes(r.DATA_ENCERRAMENTO) || extrairDiaDoMes(r.DATA_CRIACAO) || (dtCriacao ? dtCriacao.getDate() : null);
+
         let tmaHoras = null;
         if (dtCriacao && dtEncerramento && dtEncerramento >= dtCriacao) {
           tmaHoras = (dtEncerramento - dtCriacao) / (1000 * 60 * 60);
@@ -515,6 +635,7 @@
         return {
           ano,
           mes,
+          dia,
           periodo: ano + "-" + String(mes).padStart(2, "0"),
           ddd,
           indicador,
@@ -534,6 +655,7 @@
         const mesNum = parseInt(mesStr, 10);
         return {
           rotulo: `${mesesNomes[mesNum - 1]}/${anoStr.slice(-2)}`,
+          rotuloMin: `${mesesNomesMin[mesNum - 1]}/${anoStr}`,
           ano: anoStr,
           mes: mesNum,
           periodo: p
@@ -614,6 +736,12 @@
       return '#2563eb';
     }
 
+    function getSLAPointColorCombo(val) {
+      if (val < 80) return '#ef4444';
+      if (val < 85) return '#f59e0b';
+      return '#10b981';
+    }
+
     function renderizarTudo() {
       const anosSelecionados = obterSelecionados('ano');
       const mesesSelecionados = obterSelecionados('mes').map(Number);
@@ -629,18 +757,20 @@
       const setIndicadores = new Set(indicadoresSelecionados);
       const setDDDs = new Set(dddsSelecionados);
 
-      // Filtro base (sem o filtro de ano) - usado para o Gráfico Comparativo Homólogo (3 anos fixos)
-      const dadosSemFiltroAno = dadosBrutos.filter(d => {
+      // Filtro dimensional (Indicador, Rede, DDD, Status SLA)
+      const dadosDimensionais = dadosBrutos.filter(d => {
         const matchStatus = statusSlaSel === "TODOS" ||
                             (statusSlaSel === "DENTRO" && d.isDentroSLA) ||
                             (statusSlaSel === "FORA" && d.isForaSLA);
 
-        return setMeses.has(d.mes) &&
-               setIndicadores.has(d.indicador) &&
+        return setIndicadores.has(d.indicador) &&
                (redeSel === "TODAS" || d.tipoRede === redeSel) &&
                setDDDs.has(d.ddd) &&
                matchStatus;
       });
+
+      // Filtro base (sem o filtro de ano) - usado para o Gráfico Comparativo Homólogo (3 anos fixos)
+      const dadosSemFiltroAno = dadosDimensionais.filter(d => setMeses.has(d.mes));
 
       // Dados completos filtrados (incluindo Ano) para KPIs, Evolução, DDDs e Tabelas
       const dadosFiltrados = dadosSemFiltroAno.filter(d => setAnos.has(d.ano));
@@ -880,10 +1010,278 @@
         }
       });
 
-      // 6. Preenchimento das Tabelas Top 10 com %
+      // 6. NOVOS GRÁFICOS (Fechamentos Mensais [Últimos 5 meses] & Evolução SLA Diária do Mês Atual)
+      renderizarSecaoMesAtual(dadosDimensionais);
+
+      // 7. Preenchimento das Tabelas Top 10 com %
       popularTabela("tbl-top-mun-vol", agruparTop(dadosFiltrados, 'municipio', 10), totalEntrantes);
       popularTabela("tbl-top-mun-fora", agruparTop(dadosFiltrados.filter(d => d.isForaSLA), 'municipio', 10), totalForaSLA);
       popularTabela("tbl-top-alarmes", agruparTop(dadosFiltrados, 'tipoAlarme', 10), totalEntrantes);
+    }
+
+    function renderizarSecaoMesAtual(dadosDimensionais) {
+      if (timelineCompleta.length === 0) return;
+
+      // 6A. Fechamentos mensais (Últimos 5 períodos da série)
+      const ultimos5 = timelineCompleta.slice(-5);
+      const labelsFech = ultimos5.map(t => t.rotuloMin);
+      const volFech = [];
+      const slaFech = [];
+
+      ultimos5.forEach(t => {
+        const reg = dadosDimensionais.filter(d => d.ano === t.ano && d.mes === t.mes);
+        const qtd = reg.length;
+        const dentro = reg.filter(d => d.isDentroSLA).length;
+        volFech.push(qtd);
+        slaFech.push(qtd > 0 ? Number(((dentro / qtd) * 100).toFixed(1)) : 0);
+      });
+
+      const maxVolFech = Math.max(...volFech, 10);
+
+      renderChart("chartFechamentosMensais", {
+        type: 'bar',
+        data: {
+          labels: labelsFech,
+          datasets: [
+            {
+              type: 'bar',
+              label: 'Fechamentos',
+              data: volFech,
+              backgroundColor: '#2563eb',
+              hoverBackgroundColor: '#1d4ed8',
+              borderRadius: 4,
+              barPercentage: 0.72,
+              yAxisID: 'yBar',
+              order: 2
+            },
+            {
+              type: 'line',
+              label: 'SLA',
+              data: slaFech,
+              borderColor: '#22d3ee',
+              backgroundColor: '#22d3ee',
+              borderWidth: 2,
+              pointRadius: 3.5,
+              pointBackgroundColor: slaFech.map(v => getSLAPointColorCombo(v)),
+              pointBorderColor: slaFech.map(v => getSLAPointColorCombo(v)),
+              tension: 0.15,
+              yAxisID: 'yPct',
+              order: 1
+            },
+            {
+              type: 'line',
+              label: 'Meta 85%',
+              data: Array(labelsFech.length).fill(85),
+              borderColor: '#10b981',
+              borderWidth: 1.3,
+              borderDash: [4, 4],
+              pointRadius: 0,
+              fill: false,
+              yAxisID: 'yPct',
+              order: 3
+            },
+            {
+              type: 'line',
+              label: 'Alerta 80%',
+              data: Array(labelsFech.length).fill(80),
+              borderColor: '#f59e0b',
+              borderWidth: 1.3,
+              borderDash: [4, 4],
+              pointRadius: 0,
+              fill: false,
+              yAxisID: 'yPct',
+              order: 4
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          layout: { padding: { top: 20 } },
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: function(item) {
+                  if (item.dataset.yAxisID === 'yPct') return `${item.dataset.label}: ${item.raw}%`;
+                  return `${item.dataset.label}: ${Number(item.raw).toLocaleString('pt-BR')}`;
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { display: false },
+              title: { display: true, text: 'Períodos', font: { size: 11, weight: 'bold' }, color: '#334155' },
+              ticks: { font: { size: 10 } }
+            },
+            yPct: {
+              type: 'linear',
+              position: 'left',
+              beginAtZero: true,
+              max: 100,
+              ticks: { stepSize: 20, callback: v => v + '%', font: { size: 10 } },
+              title: { display: true, text: 'SLA', font: { size: 11 }, color: '#64748b' }
+            },
+            yBar: {
+              type: 'linear',
+              position: 'right',
+              beginAtZero: true,
+              suggestedMax: Math.ceil(maxVolFech * 1.45), // Mantém as barras abaixo da linha de 80%
+              display: false,
+              grid: { drawOnChartArea: false }
+            }
+          }
+        }
+      });
+
+      // 6B. Evolução SLA Diária (Último mês disponível na base = Mês Atual)
+      const periodoAtual = timelineCompleta[timelineCompleta.length - 1];
+      document.getElementById("titulo-evolucao-diaria").innerText = `Evolução SLA (${periodoAtual.rotuloMin})`;
+
+      const dadosMesAtual = dadosDimensionais.filter(d => d.ano === periodoAtual.ano && d.mes === periodoAtual.mes);
+      const diasNoMes = new Date(Number(periodoAtual.ano), periodoAtual.mes, 0).getDate();
+
+      const labelsDias = [];
+      const volDias = [];
+      const slaDias = [];
+      const detalhesPorDia = {};
+
+      for (let dia = 1; dia <= diasNoMes; dia++) {
+        const diaStr = String(dia).padStart(2, '0');
+        labelsDias.push(diaStr);
+
+        const regDia = dadosMesAtual.filter(d => d.dia === dia);
+        const qtd = regDia.length;
+        const dentro = regDia.filter(d => d.isDentroSLA).length;
+        const fora = regDia.filter(d => d.isForaSLA).length;
+
+        volDias.push(qtd);
+        slaDias.push(qtd > 0 ? Number(((dentro / qtd) * 100).toFixed(1)) : null);
+        detalhesPorDia[diaStr] = { qtd, dentro, fora, sla: qtd > 0 ? ((dentro / qtd) * 100).toFixed(1) : '0.0' };
+      }
+
+      const maxVolDia = Math.max(...volDias, 10);
+      const detalheBox = document.getElementById("detalhe-dia-selecionado");
+      detalheBox.classList.add("hidden");
+
+      renderChart("chartEvolucaoDiaria", {
+        type: 'bar',
+        data: {
+          labels: labelsDias,
+          datasets: [
+            {
+              type: 'bar',
+              label: 'Eventos',
+              data: volDias,
+              backgroundColor: '#2563eb',
+              hoverBackgroundColor: '#1d4ed8',
+              borderRadius: 3,
+              barPercentage: 0.72,
+              yAxisID: 'yBar',
+              order: 2
+            },
+            {
+              type: 'line',
+              label: 'SLA',
+              data: slaDias,
+              borderColor: '#22d3ee',
+              backgroundColor: '#22d3ee',
+              borderWidth: 2,
+              spanGaps: false,
+              pointRadius: 3.5,
+              pointHoverRadius: 5,
+              pointBackgroundColor: slaDias.map(v => v === null ? 'transparent' : getSLAPointColorCombo(v)),
+              pointBorderColor: slaDias.map(v => v === null ? 'transparent' : getSLAPointColorCombo(v)),
+              tension: 0.15,
+              yAxisID: 'yPct',
+              order: 1
+            },
+            {
+              type: 'line',
+              label: 'Meta 85%',
+              data: Array(labelsDias.length).fill(85),
+              borderColor: '#10b981',
+              borderWidth: 1.3,
+              borderDash: [4, 4],
+              pointRadius: 0,
+              fill: false,
+              yAxisID: 'yPct',
+              order: 3
+            },
+            {
+              type: 'line',
+              label: 'Alerta 80%',
+              data: Array(labelsDias.length).fill(80),
+              borderColor: '#f59e0b',
+              borderWidth: 1.3,
+              borderDash: [4, 4],
+              pointRadius: 0,
+              fill: false,
+              yAxisID: 'yPct',
+              order: 4
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          layout: { padding: { top: 20 } },
+          interaction: { mode: 'index', intersect: false },
+          onClick: function(evt, elements) {
+            if (elements && elements.length > 0) {
+              const idx = elements[0].index;
+              const diaChave = labelsDias[idx];
+              const info = detalhesPorDia[diaChave];
+              if (info) {
+                detalheBox.classList.remove("hidden");
+                detalheBox.innerHTML = `Dia <span class="text-indigo-700">${diaChave}/${String(periodoAtual.mes).padStart(2,'0')}</span>: 
+                  Total: <b>${info.qtd}</b> | 
+                  <span class="text-emerald-600">Dentro: <b>${info.dentro}</b></span> | 
+                  <span class="text-rose-600">Fora: <b>${info.fora}</b></span> | 
+                  SLA: <b>${info.sla.replace('.', ',')}%</b>`;
+              }
+            }
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                title: items => `Dia ${items[0].label}/${String(periodoAtual.mes).padStart(2, '0')}/${periodoAtual.ano}`,
+                label: function(item) {
+                  if (item.raw === null) return null;
+                  if (item.dataset.yAxisID === 'yPct') return `${item.dataset.label}: ${item.raw}%`;
+                  return `${item.dataset.label}: ${Number(item.raw).toLocaleString('pt-BR')}`;
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { display: false },
+              title: { display: true, text: 'Dias do mês', font: { size: 11, weight: 'bold' }, color: '#334155' },
+              ticks: { font: { size: 10 } }
+            },
+            yPct: {
+              type: 'linear',
+              position: 'left',
+              beginAtZero: true,
+              max: 100,
+              ticks: { stepSize: 20, callback: v => v + '%', font: { size: 10 } },
+              title: { display: true, text: 'SLA', font: { size: 11 }, color: '#64748b' }
+            },
+            yBar: {
+              type: 'linear',
+              position: 'right',
+              beginAtZero: true,
+              suggestedMax: Math.ceil(maxVolDia * 3.2), // Mantém as barras diárias proporcionais na base, igual à imagem
+              display: false,
+              grid: { drawOnChartArea: false }
+            }
+          }
+        }
+      });
     }
 
     function renderChart(id, config) {
