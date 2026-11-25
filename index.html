@@ -104,7 +104,7 @@
         </select>
       </div>
 
-      <!-- Filtro: DDD -->
+      <!-- Filtro: DDD (Coluna AO: 19-CAS, 19-PAA, etc.) -->
       <div class="relative">
         <label class="block text-xs font-bold text-slate-500 uppercase mb-1">DDD</label>
         <button id="btn-dropdown-ddd" type="button" onclick="toggleDropdown('dropdown-ddd')" class="w-full text-xs border rounded-lg p-2.5 bg-slate-50 border-slate-300 text-left flex justify-between items-center focus:ring-2 focus:ring-indigo-500 shadow-sm">
@@ -117,7 +117,7 @@
             <button onclick="selecionarTodos('ddd', true)" class="text-indigo-600 font-bold hover:underline">Marcar Todos</button>
             <button onclick="selecionarTodos('ddd', false)" class="text-slate-400 font-semibold hover:underline">Limpar</button>
           </div>
-          <div id="lista-checkbox-ddd" class="space-y-1.5 max-h-48 overflow-y-auto custom-scroll text-xs"></div>
+          <div id="lista-checkbox-ddd" class="space-y-1.5 max-h-56 overflow-y-auto custom-scroll text-xs"></div>
         </div>
       </div>
 
@@ -318,7 +318,7 @@
 
   <!-- MODAL COMPACTO (DO TAMANHO DO CARD AO LADO): SLA POR DDD DO DIA CLICADO -->
   <div id="modal-ddd-dia" onclick="if(event.target === this) fecharModalDiaDDD()" class="hidden fixed inset-0 z-50 bg-slate-900/45 backdrop-blur-[1px] flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-[420px] p-5 space-y-3">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-[440px] p-5 space-y-3">
       
       <!-- Cabeçalho do Modal -->
       <div class="flex justify-between items-start border-b border-slate-100 pb-2.5">
@@ -356,6 +356,9 @@
     // URL CSV da aba "Alterações"
     const CSV_ALTERACOES_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQSVCOuJqNWVYrCq6jRJc_wxst1sJO_fmV6tIPYofgAQdegaJ70SbDJsyrpfnOdfua-AV5xSq8FHlkG/pub?gid=1010339059&single=true&output=csv";
 
+    // Índice da coluna AO (A=0 ... Z=25, AA=26 ... AN=39, AO=40)
+    const INDICE_COLUNA_AO = 40;
+
     const mesesNomes = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
     const mesesNomesMin = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
     const listaMesesGeral = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
@@ -367,6 +370,11 @@
     let listaAnosGeral = [];
     let listaIndicadoresGeral = [];
     let listaDDDsGeral = [];
+
+    // Ordenação alfanumérica natural (ex: 12, 14, 15, 16, 17, 18, 19-CAS, 19-PAA)
+    function ordenarDDD(a, b) {
+      return String(a).localeCompare(String(b), 'pt-BR', { numeric: true, sensitivity: 'base' });
+    }
 
     // Plugin para rótulos verticais na base interna das barras com fonte de 13px
     const pluginRotulosNaBase = {
@@ -572,8 +580,9 @@
 
     function dddValido(dddStr) {
       if (!dddStr) return false;
-      const limpo = String(dddStr).replace(/\.0$/, "").trim().toLowerCase();
-      if (limpo === '' || limpo === 'null' || limpo === 'undefined' || limpo === 'nan' || limpo === '11') {
+      const limpo = String(dddStr).replace(/\.0$/, "").trim();
+      const lower = limpo.toLowerCase();
+      if (lower === '' || lower === 'null' || lower === 'undefined' || lower === 'nan' || lower === '0' || lower === '11' || lower.startsWith('11-')) {
         return false;
       }
       return true;
@@ -635,14 +644,16 @@
       carregarDataUltimaAlteracao();
 
       const urlSemCache = CSV_URL + "&t=" + new Date().getTime();
+      // Usamos header: false para ler a coluna AO (índice 40) diretamente sem conflito com outra coluna DDD
       Papa.parse(urlSemCache, {
         download: true,
-        header: true,
+        header: false,
         skipEmptyLines: true,
         complete: (results) => {
-          document.getElementById("status-carga").innerHTML = "● Online (" + results.data.length.toLocaleString('pt-BR') + " chamados)";
+          const totalLinhas = Math.max(0, results.data.length - 1);
+          document.getElementById("status-carga").innerHTML = "● Online (" + totalLinhas.toLocaleString('pt-BR') + " chamados)";
           document.getElementById("status-carga").className = "text-xs font-semibold px-3 py-1.5 rounded-full bg-emerald-900 text-emerald-200 flex items-center gap-2";
-          processarBase(results.data);
+          processarBaseMatriz(results.data);
         },
         error: (err) => {
           document.getElementById("status-carga").innerHTML = "Erro ao carregar dados";
@@ -651,22 +662,42 @@
       });
     });
 
-    function processarBase(linhas) {
-      dadosBrutos = linhas.map(r => {
-        const ano = String(r.ANO || "").trim();
-        const mes = parseInt(r.MÊS || 0, 10);
-        const dddRaw = String(r.DDD || "").replace(/\.0$/, "").trim();
-        const planta = String(r.PLANTA || "");
-        const status = String(r.STATUS_INDICADOR || "").toLowerCase().trim();
-        const indicador = String(r.INDICADOR || "Não Informado").trim();
+    function processarBaseMatriz(matriz) {
+      if (!matriz || matriz.length < 2) return;
+
+      const cabecalhos = matriz[0].map(h => String(h || "").trim().toUpperCase());
+      const idxAno = cabecalhos.indexOf("ANO");
+      const idxMes = cabecalhos.indexOf("MÊS") !== -1 ? cabecalhos.indexOf("MÊS") : cabecalhos.indexOf("MES");
+      const idxPlanta = cabecalhos.indexOf("PLANTA");
+      const idxStatus = cabecalhos.indexOf("STATUS_INDICADOR");
+      const idxIndicador = cabecalhos.indexOf("INDICADOR");
+      const idxCriacao = cabecalhos.indexOf("DATA_CRIACAO");
+      const idxEncerramento = cabecalhos.indexOf("DATA_ENCERRAMENTO");
+      const idxMunicipio = cabecalhos.indexOf("MUNICIPIO");
+      const idxAlarme = cabecalhos.indexOf("TIPO_ALARME");
+
+      // Coluna AO (índice 40); se não existir por algum motivo, busca o último índice chamado "DDD"
+      const idxDDD_AO = cabecalhos.length > INDICE_COLUNA_AO ? INDICE_COLUNA_AO : cabecalhos.lastIndexOf("DDD");
+
+      const linhasDados = matriz.slice(1);
+
+      dadosBrutos = linhasDados.map(row => {
+        const ano = idxAno !== -1 ? String(row[idxAno] || "").trim() : "";
+        const mes = idxMes !== -1 ? parseInt(row[idxMes] || 0, 10) : 0;
+        const dddRaw = idxDDD_AO !== -1 ? String(row[idxDDD_AO] || "").replace(/\.0$/, "").trim() : "";
+        const planta = idxPlanta !== -1 ? String(row[idxPlanta] || "") : "";
+        const status = idxStatus !== -1 ? String(row[idxStatus] || "").toLowerCase().trim() : "";
+        const indicador = idxIndicador !== -1 ? String(row[idxIndicador] || "Não Informado").trim() : "Não Informado";
 
         let tipoRede = "Outro";
         if (planta.includes("Móvel")) tipoRede = "Móvel";
         else if (planta.includes("Fixa")) tipoRede = "Fixa";
 
-        const dtCriacao = parseDataHora(r.DATA_CRIACAO);
-        const dtEncerramento = parseDataHora(r.DATA_ENCERRAMENTO);
-        const dia = extrairDiaDoMes(r.DATA_ENCERRAMENTO) || extrairDiaDoMes(r.DATA_CRIACAO) || (dtCriacao ? dtCriacao.getDate() : null);
+        const strCriacao = idxCriacao !== -1 ? row[idxCriacao] : "";
+        const strEncerramento = idxEncerramento !== -1 ? row[idxEncerramento] : "";
+        const dtCriacao = parseDataHora(strCriacao);
+        const dtEncerramento = parseDataHora(strEncerramento);
+        const dia = extrairDiaDoMes(strEncerramento) || extrairDiaDoMes(strCriacao) || (dtCriacao ? dtCriacao.getDate() : null);
 
         let tmaHoras = null;
         if (dtCriacao && dtEncerramento && dtEncerramento >= dtCriacao) {
@@ -685,8 +716,8 @@
           tipoRede,
           isDentroSLA: status === "dentro",
           isForaSLA: status === "fora",
-          municipio: (r.MUNICIPIO || "Não Identificado").trim(),
-          tipoAlarme: (r.TIPO_ALARME || "Não Informado").trim(),
+          municipio: idxMunicipio !== -1 ? (row[idxMunicipio] || "Não Identificado").trim() : "Não Identificado",
+          tipoAlarme: idxAlarme !== -1 ? (row[idxAlarme] || "Não Informado").trim() : "Não Informado",
           tmaHoras
         };
       }).filter(d => d.ano && d.mes > 0);
@@ -713,7 +744,7 @@
 
       listaAnosGeral = [...new Set(dadosBrutos.map(d => d.ano).filter(Boolean))].sort();
       listaIndicadoresGeral = [...new Set(dadosBrutos.map(d => d.indicador).filter(Boolean))].sort();
-      listaDDDsGeral = [...new Set(dadosBrutos.map(d => d.ddd).filter(Boolean))].sort((a,b) => Number(a) - Number(b));
+      listaDDDsGeral = [...new Set(dadosBrutos.map(d => d.ddd).filter(Boolean))].sort(ordenarDDD);
 
       popularCheckboxList('lista-checkbox-anos', 'chk-ano', listaAnosGeral, (val) => val);
       popularCheckboxList('lista-checkbox-meses', 'chk-mes', listaMesesGeral, (val) => mesesNomes[Number(val) - 1]);
@@ -769,7 +800,7 @@
       const lblDDD = document.getElementById('label-dropdown-ddd');
       if (dddsSel.length === 0) lblDDD.innerText = "Nenhum";
       else if (dddsSel.length === listaDDDsGeral.length) lblDDD.innerText = "Todos os DDDs";
-      else if (dddsSel.length <= 3) lblDDD.innerText = dddsSel.map(d => "DDD " + d).join(", ");
+      else if (dddsSel.length <= 2) lblDDD.innerText = dddsSel.map(d => "DDD " + d).join(", ");
       else lblDDD.innerText = `${dddsSel.length} DDDs`;
     }
 
@@ -799,8 +830,8 @@
       document.getElementById('modal-ddd-titulo').innerText = `SLA por DDD — Dia ${diaStr}/${mesStr}/${periodoAtual.ano}`;
       document.getElementById('modal-ddd-subtitulo').innerHTML = `Total: <b>${totalDia}</b> | <span class="text-emerald-600">Dentro: <b>${dentroDia}</b></span> | <span class="text-rose-600">Fora: <b>${foraDia}</b></span> | Geral: <b>${slaGeralDia}%</b>`;
 
-      // Agrupa por DDD no dia clicado e ordena numericamente pelo DDD
-      const dddsDia = [...new Set(regDia.map(d => d.ddd).filter(Boolean))].sort((a, b) => Number(a) - Number(b));
+      // Agrupa por DDD no dia clicado e ordena naturalmente (12, 14, 15, 16, 17, 18, 19-CAS, 19-PAA)
+      const dddsDia = [...new Set(regDia.map(d => d.ddd).filter(Boolean))].sort(ordenarDDD);
       const statsDiaDDD = dddsDia.map(ddd => {
         const rows = regDia.filter(d => d.ddd === ddd);
         const tot = rows.length;
@@ -815,13 +846,13 @@
       renderChart('chartDiaDDDSla', {
         type: 'bar',
         data: {
-          labels: statsDiaDDD.map(d => 'DDD ' + d.ddd),
+          labels: statsDiaDDD.map(d => d.ddd),
           datasets: [{
             label: '% SLA',
             data: statsDiaDDD.map(d => d.sla),
             backgroundColor: statsDiaDDD.map(d => getSLAColor(d.sla)),
             borderRadius: 4,
-            barPercentage: 0.65
+            barPercentage: 0.68
           }]
         },
         options: {
@@ -832,6 +863,7 @@
             legend: { display: false },
             tooltip: {
               callbacks: {
+                title: items => 'DDD ' + items[0].label,
                 label: function(item) {
                   const info = statsDiaDDD[item.dataIndex];
                   return `SLA: ${String(info.sla).replace('.', ',')}% (${info.dent}/${info.tot})`;
@@ -840,7 +872,7 @@
             }
           },
           scales: {
-            x: { grid: { display: false }, ticks: { font: { size: 10, weight: 'bold' } } },
+            x: { grid: { display: false }, ticks: { font: { size: 10, weight: 'bold' }, maxRotation: 35, minRotation: 0 } },
             y: { beginAtZero: true, max: 100, ticks: { stepSize: 20, callback: v => v + '%', font: { size: 10 } } }
           }
         }
@@ -1030,7 +1062,7 @@
         }
       });
 
-      // Preparação dos dados agrupados por DDD para os Gráficos 3 e 4
+      // Preparação dos dados agrupados por DDD (Coluna AO) para os Gráficos 3 e 4
       const dddsUnicos = [...new Set(dadosFiltrados.map(d => d.ddd).filter(Boolean))];
       const statsDDD = dddsUnicos.map(ddd => {
         const dddRows = dadosFiltrados.filter(d => d.ddd === ddd);
