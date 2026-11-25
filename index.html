@@ -209,7 +209,7 @@
 
     </section>
 
-    <!-- NOVA SEÇÃO: Fechamentos Mensais [1/3] + Evolução SLA Diária do Mês Atual [2/3] -->
+    <!-- SEÇÃO: Fechamentos Mensais [1/3] + Evolução SLA Diária do Mês Atual [2/3] -->
     <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
       
       <!-- 1/3 da Linha: Fechamentos mensais (Últimos 5 meses) -->
@@ -247,11 +247,11 @@
             </div>
           </div>
         </div>
-        <div class="h-72 relative">
+        <div class="h-72 relative cursor-pointer">
           <canvas id="chartEvolucaoDiaria"></canvas>
         </div>
         <div class="mt-2 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
-          <p class="text-[11px] text-slate-500">Clique em um dia para ver os eventos dentro e fora do indicador.</p>
+          <p class="text-[11px] text-slate-500">Clique em um dia para abrir o gráfico de SLA por DDD.</p>
           <div id="detalhe-dia-selecionado" class="hidden text-xs font-semibold px-3 py-1 rounded-lg bg-slate-100 text-slate-700 border border-slate-200"></div>
         </div>
       </div>
@@ -316,6 +316,39 @@
 
   </div>
 
+  <!-- MODAL COMPACTO (DO TAMANHO DO CARD AO LADO): SLA POR DDD DO DIA CLICADO -->
+  <div id="modal-ddd-dia" onclick="if(event.target === this) fecharModalDiaDDD()" class="hidden fixed inset-0 z-50 bg-slate-900/45 backdrop-blur-[1px] flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-[420px] p-5 space-y-3 animate-[fadeIn_0.15s_ease-out]">
+      
+      <!-- Cabeçalho do Modal -->
+      <div class="flex justify-between items-start border-b border-slate-100 pb-2.5">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="w-5 h-5 rounded bg-indigo-900 text-white flex items-center justify-center text-[11px] font-bold">📊</span>
+            <h4 id="modal-ddd-titulo" class="text-sm font-bold text-slate-800">SLA por DDD — Dia --/--</h4>
+          </div>
+          <p id="modal-ddd-subtitulo" class="text-[11px] text-slate-500 mt-1">Total: 0 | Dentro: 0 | Fora: 0</p>
+        </div>
+        <button type="button" onclick="fecharModalDiaDDD()" class="text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg p-1 transition" title="Fechar">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+      </div>
+
+      <!-- Legenda das faixas de SLA -->
+      <div class="flex items-center justify-between text-[10px] font-semibold text-slate-500 px-1">
+        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-red-500 inline-block"></span> &lt;80%</span>
+        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-yellow-400 inline-block"></span> 80% - 84,9%</span>
+        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-blue-600 inline-block"></span> &ge;85%</span>
+      </div>
+
+      <!-- Canvas do Gráfico de Colunas de SLA por DDD -->
+      <div class="h-64 relative">
+        <canvas id="chartDiaDDDSla"></canvas>
+      </div>
+
+    </div>
+  </div>
+
   <script>
     // URL da base principal (Folha1)
     const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQSVCOuJqNWVYrCq6jRJc_wxst1sJO_fmV6tIPYofgAQdegaJ70SbDJsyrpfnOdfua-AV5xSq8FHlkG/pub?gid=194075109&single=true&output=csv";
@@ -340,7 +373,7 @@
       id: 'rotulosNaBase',
       afterDatasetsDraw(chart) {
         if (!chart.canvas) return;
-        if (chart.canvas.id === 'chartFechamentosMensais' || chart.canvas.id === 'chartEvolucaoDiaria') return;
+        if (chart.canvas.id === 'chartFechamentosMensais' || chart.canvas.id === 'chartEvolucaoDiaria' || chart.canvas.id === 'chartDiaDDDSla') return;
 
         const { ctx } = chart;
         chart.data.datasets.forEach((dataset, datasetIndex) => {
@@ -369,11 +402,12 @@
       }
     };
 
-    // Plugin para rótulos de dados no topo das barras do gráfico Top DDDs por Desempenho (%)
+    // Plugin para rótulos de dados no topo das barras do gráfico Top DDDs por Desempenho (%) e Modal DDD do Dia
     const pluginRotulosDDDSla = {
       id: 'rotulosDDDSla',
       afterDatasetsDraw(chart) {
-        if (!chart.canvas || chart.canvas.id !== 'chartDDDSla') return;
+        if (!chart.canvas) return;
+        if (chart.canvas.id !== 'chartDDDSla' && chart.canvas.id !== 'chartDiaDDDSla') return;
         const { ctx } = chart;
         const dataset = chart.data.datasets[0];
         const meta = chart.getDatasetMeta(0);
@@ -395,7 +429,7 @@
       }
     };
 
-    // Plugin para rótulos dos novos gráficos: Fechamentos Mensais e Evolução SLA Diária (estilo da imagem)
+    // Plugin para rótulos dos gráficos: Fechamentos Mensais e Evolução SLA Diária
     const pluginRotulosComboMêsAtual = {
       id: 'rotulosComboMesAtual',
       afterDatasetsDraw(chart) {
@@ -465,7 +499,7 @@
 
           const meta24 = ds2024 ? chart.getDatasetMeta(chart.data.datasets.indexOf(ds2024)).data[idx] : null;
           const meta25 = ds2025 ? chart.getDatasetMeta(chart.data.datasets.indexOf(ds2025)).data[idx] : null;
-          const meta26 = ds2026 ? chart.getDatasetMeta(chart.data.datasets.indexOf(ds2026)).data[idx] : null;
+          const meta26 = ds26 ? chart.getDatasetMeta(chart.data.datasets.indexOf(ds26)).data[idx] : null;
 
           // Variação 24 -> 25
           if (v24 > 0 && v25 > 0 && meta24 && meta25) {
@@ -545,7 +579,7 @@
       return true;
     }
 
-    // Controle dos Menus Dropdown
+    // Controle dos Menus Dropdown e Modal
     function toggleDropdown(id) {
       const dropdown = document.getElementById(id);
       const estaAberto = !dropdown.classList.contains('hidden');
@@ -559,6 +593,15 @@
         if (el) el.classList.add('hidden');
       });
     }
+
+    function fecharModalDiaDDD() {
+      const modal = document.getElementById('modal-ddd-dia');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') fecharModalDiaDDD();
+    });
 
     window.addEventListener('click', (e) => {
       if (!e.target.closest('#btn-dropdown-anos') && !e.target.closest('#dropdown-anos') &&
@@ -740,6 +783,68 @@
       if (val < 80) return '#ef4444';
       if (val < 85) return '#f59e0b';
       return '#10b981';
+    }
+
+    function abrirModalDiaDDD(dia, periodoAtual, dadosMesAtual) {
+      const regDia = dadosMesAtual.filter(d => d.dia === dia);
+      if (regDia.length === 0) return;
+
+      const diaStr = String(dia).padStart(2, '0');
+      const mesStr = String(periodoAtual.mes).padStart(2, '0');
+      const totalDia = regDia.length;
+      const dentroDia = regDia.filter(d => d.isDentroSLA).length;
+      const foraDia = regDia.filter(d => d.isForaSLA).length;
+      const slaGeralDia = totalDia > 0 ? ((dentroDia / totalDia) * 100).toFixed(1).replace('.', ',') : '0,0';
+
+      document.getElementById('modal-ddd-titulo').innerText = `SLA por DDD — Dia ${diaStr}/${mesStr}/${periodoAtual.ano}`;
+      document.getElementById('modal-ddd-subtitulo').innerHTML = `Total: <b>${totalDia}</b> | <span class="text-emerald-600">Dentro: <b>${dentroDia}</b></span> | <span class="text-rose-600">Fora: <b>${foraDia}</b></span> | Geral: <b>${slaGeralDia}%</b>`;
+
+      // Agrupa por DDD no dia clicado e ordena numericamente pelo DDD
+      const dddsDia = [...new Set(regDia.map(d => d.ddd).filter(Boolean))].sort((a, b) => Number(a) - Number(b));
+      const statsDiaDDD = dddsDia.map(ddd => {
+        const rows = regDia.filter(d => d.ddd === ddd);
+        const tot = rows.length;
+        const dent = rows.filter(d => d.isDentroSLA).length;
+        const sla = tot > 0 ? Number(((dent / tot) * 100).toFixed(1)) : 0;
+        return { ddd, tot, dent, sla };
+      });
+
+      const modal = document.getElementById('modal-ddd-dia');
+      modal.classList.remove('hidden');
+
+      renderChart('chartDiaDDDSla', {
+        type: 'bar',
+        data: {
+          labels: statsDiaDDD.map(d => 'DDD ' + d.ddd),
+          datasets: [{
+            label: '% SLA',
+            data: statsDiaDDD.map(d => d.sla),
+            backgroundColor: statsDiaDDD.map(d => getSLAColor(d.sla)),
+            borderRadius: 4,
+            barPercentage: 0.65
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          layout: { padding: { top: 22 } },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: function(item) {
+                  const info = statsDiaDDD[item.dataIndex];
+                  return `SLA: ${String(info.sla).replace('.', ',')}% (${info.dent}/${info.tot})`;
+                }
+              }
+            }
+          },
+          scales: {
+            x: { grid: { display: false }, ticks: { font: { size: 10, weight: 'bold' } } },
+            y: { beginAtZero: true, max: 100, ticks: { stepSize: 20, callback: v => v + '%', font: { size: 10 } } }
+          }
+        }
+      });
     }
 
     function renderizarTudo() {
@@ -1010,7 +1115,7 @@
         }
       });
 
-      // 6. NOVOS GRÁFICOS (Fechamentos Mensais [Últimos 5 meses] & Evolução SLA Diária do Mês Atual)
+      // 6. GRÁFICOS DO MÊS ATUAL (Fechamentos Mensais [Últimos 5 meses] & Evolução SLA Diária)
       renderizarSecaoMesAtual(dadosDimensionais);
 
       // 7. Preenchimento das Tabelas Top 10 com %
@@ -1128,7 +1233,7 @@
               type: 'linear',
               position: 'right',
               beginAtZero: true,
-              suggestedMax: Math.ceil(maxVolFech * 1.45), // Mantém as barras abaixo da linha de 80%
+              suggestedMax: Math.ceil(maxVolFech * 1.45),
               display: false,
               grid: { drawOnChartArea: false }
             }
@@ -1159,7 +1264,7 @@
 
         volDias.push(qtd);
         slaDias.push(qtd > 0 ? Number(((dentro / qtd) * 100).toFixed(1)) : null);
-        detalhesPorDia[diaStr] = { qtd, dentro, fora, sla: qtd > 0 ? ((dentro / qtd) * 100).toFixed(1) : '0.0' };
+        detalhesPorDia[diaStr] = { diaNum: dia, qtd, dentro, fora, sla: qtd > 0 ? ((dentro / qtd) * 100).toFixed(1) : '0.0' };
       }
 
       const maxVolDia = Math.max(...volDias, 10);
@@ -1234,13 +1339,16 @@
               const idx = elements[0].index;
               const diaChave = labelsDias[idx];
               const info = detalhesPorDia[diaChave];
-              if (info) {
+              if (info && info.qtd > 0) {
                 detalheBox.classList.remove("hidden");
                 detalheBox.innerHTML = `Dia <span class="text-indigo-700">${diaChave}/${String(periodoAtual.mes).padStart(2,'0')}</span>: 
                   Total: <b>${info.qtd}</b> | 
                   <span class="text-emerald-600">Dentro: <b>${info.dentro}</b></span> | 
                   <span class="text-rose-600">Fora: <b>${info.fora}</b></span> | 
                   SLA: <b>${info.sla.replace('.', ',')}%</b>`;
+                
+                // Abre o modal compacto com o gráfico de colunas de SLA por DDD daquele dia
+                abrirModalDiaDDD(info.diaNum, periodoAtual, dadosMesAtual);
               }
             }
           },
@@ -1275,7 +1383,7 @@
               type: 'linear',
               position: 'right',
               beginAtZero: true,
-              suggestedMax: Math.ceil(maxVolDia * 3.2), // Mantém as barras diárias proporcionais na base, igual à imagem
+              suggestedMax: Math.ceil(maxVolDia * 3.2),
               display: false,
               grid: { drawOnChartArea: false }
             }
